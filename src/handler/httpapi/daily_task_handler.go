@@ -9,12 +9,21 @@ import (
 )
 
 type DailyTaskHandler struct {
-	create *dailytask.CreateDailyTaskUsecase
-	list   *dailytask.ListDailyTasksUsecase
+	create     *dailytask.CreateDailyTaskUsecase
+	list       *dailytask.ListDailyTasksUsecase
+	updateDone *dailytask.UpdateDailyTaskDoneUsecase
 }
 
-func NewDailyTaskHandler(create *dailytask.CreateDailyTaskUsecase, list *dailytask.ListDailyTasksUsecase) *DailyTaskHandler {
-	return &DailyTaskHandler{create: create, list: list}
+func NewDailyTaskHandler(
+	create *dailytask.CreateDailyTaskUsecase,
+	list *dailytask.ListDailyTasksUsecase,
+	updateDone *dailytask.UpdateDailyTaskDoneUsecase,
+) *DailyTaskHandler {
+	return &DailyTaskHandler{create: create, list: list, updateDone: updateDone}
+}
+
+type updateDailyTaskDoneRequest struct {
+	Done bool `json:"done"`
 }
 
 type createDailyTaskRequest struct {
@@ -47,6 +56,23 @@ func (h *DailyTaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, got)
+}
+
+func (h *DailyTaskHandler) UpdateDone(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	var req updateDailyTaskDoneRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.updateDone.Execute(dailytask.UpdateDailyTaskDoneInput{ID: id, Done: req.Done}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "done": req.Done})
 }
 
 func (h *DailyTaskHandler) List(w http.ResponseWriter, r *http.Request) {

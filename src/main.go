@@ -8,6 +8,7 @@ import (
 	"github.com/ASpooky/Work-Backend-From/src/infra/clock"
 	"github.com/ASpooky/Work-Backend-From/src/infra/idgen"
 	"github.com/ASpooky/Work-Backend-From/src/repository/sqlite"
+	"github.com/ASpooky/Work-Backend-From/src/usecase"
 	"github.com/ASpooky/Work-Backend-From/src/usecase/dailytask"
 	"github.com/ASpooky/Work-Backend-From/src/usecase/goal"
 	"github.com/ASpooky/Work-Backend-From/src/usecase/workspace"
@@ -33,6 +34,8 @@ func main() {
 	listGoals := goal.NewListGoalsUsecase(goalRepo)
 	createDailyTask := dailytask.NewCreateDailyTaskUsecase(dailyTaskRepo, ids, clk)
 	listDailyTasks := dailytask.NewListDailyTasksUsecase(dailyTaskRepo)
+	updateDailyTaskDone := dailytask.NewUpdateDailyTaskDoneUsecase(dailyTaskRepo)
+	getCalendar := usecase.NewGetCalendarUsecase(goalRepo, dailyTaskRepo)
 
 	if err := ensureDefaultWorkspace(createWorkspace, listWorkspaces); err != nil {
 		log.Fatalf("failed to ensure default workspace: %v", err)
@@ -40,7 +43,8 @@ func main() {
 
 	workspaceHandler := httpapi.NewWorkspaceHandler(createWorkspace, listWorkspaces)
 	goalHandler := httpapi.NewGoalHandler(createGoal, listGoals)
-	dailyTaskHandler := httpapi.NewDailyTaskHandler(createDailyTask, listDailyTasks)
+	dailyTaskHandler := httpapi.NewDailyTaskHandler(createDailyTask, listDailyTasks, updateDailyTaskDone)
+	calendarHandler := httpapi.NewCalendarHandler(getCalendar)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /workspaces", workspaceHandler.Create)
@@ -49,6 +53,8 @@ func main() {
 	mux.HandleFunc("GET /goals", goalHandler.List)
 	mux.HandleFunc("POST /daily-tasks", dailyTaskHandler.Create)
 	mux.HandleFunc("GET /daily-tasks", dailyTaskHandler.List)
+	mux.HandleFunc("PATCH /daily-tasks/{id}", dailyTaskHandler.UpdateDone)
+	mux.HandleFunc("GET /calendar", calendarHandler.Get)
 
 	log.Println("listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", httpapi.WithCORS(mux)))

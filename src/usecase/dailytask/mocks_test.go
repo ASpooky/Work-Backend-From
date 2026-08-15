@@ -23,8 +23,10 @@ func (s stubClock) Now() time.Time {
 }
 
 type mockRepository struct {
-	saved      *entity.DailyTask
-	findByDate []*entity.DailyTask
+	saved       *entity.DailyTask
+	findByDate  []*entity.DailyTask
+	updatedID   string
+	updatedDone bool
 }
 
 func (m *mockRepository) Save(task *entity.DailyTask) error {
@@ -34,4 +36,10 @@ func (m *mockRepository) Save(task *entity.DailyTask) error {
 
 func (m *mockRepository) FindByDate(date time.Time) ([]*entity.DailyTask, error) {
 	return m.findByDate, nil
+}
+
+func (m *mockRepository) UpdateDone(id string, done bool) error {
+	m.updatedID = id
+	m.updatedDone = done
+	return nil
 }
