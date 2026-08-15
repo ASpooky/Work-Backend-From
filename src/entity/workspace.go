@@ -3,10 +3,10 @@ package entity
 import "time"
 
 type WorkSpace struct {
-	ID        string
-	UserID    string
-	Name      string
-	CreatedAt time.Time
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func NewWorkSpace(id, userID, name string, createdAt time.Time) *WorkSpace {

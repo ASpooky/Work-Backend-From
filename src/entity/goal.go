@@ -18,15 +18,15 @@ const (
 )
 
 type Goal struct {
-	ID                   string
-	WorkspaceID          string
-	Title                string
-	Detail               string
-	AchievementCondition string
-	EndDate              time.Time
-	Mode                 GoalMode
-	Status               GoalStatus
-	CreatedAt            time.Time
+	ID                   string     `json:"id"`
+	WorkspaceID          string     `json:"workspace_id"`
+	Title                string     `json:"title"`
+	Detail               string     `json:"detail"`
+	AchievementCondition string     `json:"achievement_condition"`
+	EndDate              time.Time  `json:"end_date"`
+	Mode                 GoalMode   `json:"mode"`
+	Status               GoalStatus `json:"status"`
+	CreatedAt            time.Time  `json:"created_at"`
 }
 
 func NewGoal(id, workspaceID, title, detail, achievementCondition string, endDate time.Time, mode GoalMode, createdAt time.Time) *Goal {
