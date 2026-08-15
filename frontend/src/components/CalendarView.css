@@ -1,0 +1,255 @@
+.calendar-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.period-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.period-label {
+  min-width: 8rem;
+  text-align: center;
+}
+
+.today-task-list {
+  margin-top: 1rem;
+}
+
+.today-task-list h3 {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.task-item input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+.task-item-done {
+  color: var(--text);
+  text-decoration: line-through;
+}
+
+.task-list {
+  margin-top: 0;
+}
+
+/* Week "goal path" view */
+
+.week-path {
+  --surface-1: var(--bg);
+  --surface-2: var(--code-bg);
+  --bg-accent: var(--accent-bg);
+  --border-accent: var(--accent-border);
+  --text-primary: var(--text-h);
+  --text-secondary: var(--text);
+  --text-accent: var(--accent);
+
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem 1.25rem;
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.week-path-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.week-path-range {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.week-path-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.week-path-empty {
+  color: var(--text-secondary);
+}
+
+.wk {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.week-path-weekday-row {
+  border-bottom: 0.5px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.week-path-weekday-row div {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.week-path-weekday-row div.accent {
+  color: var(--text-accent);
+}
+
+.lane {
+  position: relative;
+  margin-top: 14px;
+}
+
+.lane .line {
+  position: absolute;
+  top: calc(50% - 0.5px);
+  height: 1px;
+  background: var(--border-strong);
+}
+
+.lane .arw {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  line-height: 1;
+}
+
+.lane .cell {
+  padding: 0 3px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+}
+
+.lane .card {
+  width: 100%;
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 7px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.lane .card b {
+  display: block;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.lane .card span {
+  color: var(--text-secondary);
+}
+
+.lane .card.status-done {
+  background: var(--surface-1);
+  border-color: transparent;
+}
+
+.lane .card.status-not_done {
+  border-left: 2px solid var(--danger);
+}
+
+.lane .card.status-not_done span {
+  color: var(--danger);
+}
+
+.lane .goal {
+  width: 100%;
+  background: var(--bg-accent);
+  border: 2px solid var(--border-accent);
+  border-radius: 8px;
+  padding: 6px 7px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-accent);
+}
+
+.lane .goal b {
+  display: block;
+  font-weight: 500;
+}
+
+/* Goal progress list */
+
+.goal-progress-list {
+  margin-top: 1rem;
+}
+
+.goal-progress-list h3 {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+}
+
+.goal-progress-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.goal-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.goal-progress-title {
+  flex: 0 0 auto;
+  width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.goal-progress-bar {
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.goal-progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+.goal-progress-percent {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.goal-progress-empty {
+  font-size: 0.85rem;
+  color: var(--text);
+}

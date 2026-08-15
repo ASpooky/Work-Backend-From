@@ -1,0 +1,143 @@
+:root {
+  --text: #6f7280;
+  --text-h: #111114;
+  --bg: #ffffff;
+  --bg-raised: #f6f6f8;
+  --code-bg: var(--bg-raised);
+  --border: rgba(15, 16, 20, 0.09);
+  --border-strong: rgba(15, 16, 20, 0.16);
+  --accent: #5e6ad2;
+  --accent-bg: rgba(94, 106, 210, 0.08);
+  --accent-border: rgba(94, 106, 210, 0.35);
+  --danger: #e5484d;
+  --success: #46a758;
+
+  --sans: 'Inter Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: 'Inter Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 15px/1.55 var(--sans);
+  font-weight: 400;
+  letter-spacing: 0;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --text: #92959e;
+    --text-h: #f7f8f8;
+    --bg: #0f1011;
+    --bg-raised: #17181a;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.15);
+    --accent: #7b85e0;
+    --accent-bg: rgba(123, 133, 224, 0.14);
+    --accent-border: rgba(123, 133, 224, 0.45);
+  }
+}
+
+:root[data-theme='dark'] {
+  --text: #92959e;
+  --text-h: #f7f8f8;
+  --bg: #0f1011;
+  --bg-raised: #17181a;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --accent: #7b85e0;
+  --accent-bg: rgba(123, 133, 224, 0.14);
+  --accent-border: rgba(123, 133, 224, 0.45);
+}
+
+#root {
+  width: 100%;
+  min-height: 100svh;
+  display: flex;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--heading);
+  font-weight: 590;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: 1.75rem;
+  margin: 0 0 1.5rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.6rem;
+}
+
+h3 {
+  font-size: 0.85rem;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--border-strong);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input,
+select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+
+code {
+  font-family: var(--mono);
+  display: inline-flex;
+  border-radius: 4px;
+  color: var(--text-h);
+  font-size: 0.9rem;
+  line-height: 135%;
+  padding: 4px 8px;
+  background: var(--code-bg);
+}

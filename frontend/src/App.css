@@ -1,0 +1,85 @@
+.app-shell {
+  display: flex;
+  width: 100%;
+  min-height: 100svh;
+  align-items: stretch;
+}
+
+.app {
+  flex: 1 1 auto;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  text-align: left;
+}
+
+.app section {
+  margin-top: 2rem;
+}
+
+.app form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.app form input,
+.app form select {
+  flex: 1 1 auto;
+}
+
+.app .error {
+  color: var(--danger);
+}
+
+.app .workspace {
+  opacity: 0.7;
+}
+
+.app ul {
+  list-style: none;
+  padding: 0;
+}
+
+.app li {
+  padding: 0.25rem 0;
+}
+
+.settings-theme-options {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.settings-radio {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.settings-note {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text);
+  opacity: 0.8;
+  max-width: 32rem;
+}
+
+.settings-api-key {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.settings-api-key input {
+  flex: 1 1 auto;
+  max-width: 20rem;
+}
+
+.settings-saved {
+  font-size: 0.8rem;
+  color: var(--accent);
+}
