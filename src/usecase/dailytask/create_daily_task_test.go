@@ -8,31 +8,6 @@ import (
 	"github.com/ASpooky/Work-Backend-From/src/entity"
 )
 
-type stubIDGenerator struct {
-	id string
-}
-
-func (s stubIDGenerator) NewID() string {
-	return s.id
-}
-
-type stubClock struct {
-	now time.Time
-}
-
-func (s stubClock) Now() time.Time {
-	return s.now
-}
-
-type mockRepository struct {
-	saved *entity.DailyTask
-}
-
-func (m *mockRepository) Save(task *entity.DailyTask) error {
-	m.saved = task
-	return nil
-}
-
 func TestCreateDailyTaskUsecase_Execute(t *testing.T) {
 	fixedID := "task-001"
 	fixedNow := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)

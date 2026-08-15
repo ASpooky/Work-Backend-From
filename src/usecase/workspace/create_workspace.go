@@ -12,6 +12,7 @@ type CreateWorkspaceInput struct {
 
 type Repository interface {
 	Save(workspace *entity.WorkSpace) error
+	FindAll() ([]*entity.WorkSpace, error)
 }
 
 type CreateWorkspaceUsecase struct {

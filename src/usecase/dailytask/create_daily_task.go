@@ -15,6 +15,7 @@ type CreateDailyTaskInput struct {
 
 type Repository interface {
 	Save(task *entity.DailyTask) error
+	FindByDate(date time.Time) ([]*entity.DailyTask, error)
 }
 
 type CreateDailyTaskUsecase struct {
