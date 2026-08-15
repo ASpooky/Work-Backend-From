@@ -12,10 +12,12 @@ import (
 	"github.com/ASpooky/Work-Backend-From/src/repository/sqlite"
 )
 
+const dateLayout = "2006-01-02"
+
 type seedGoal struct {
 	title, detail, condition string
 	mode                     entity.GoalMode
-	doneRate                 float64 // probability a scheduled day is marked done
+	doneRate                 float64 // probability a scheduled past/today day is marked done
 	skipRate                 float64 // probability a day has no task at all
 }
 
@@ -52,9 +54,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to list goals: %v", err)
 	}
-	if len(existingGoals) > 0 {
-		log.Printf("workspace %q already has %d goal(s); skipping seed to avoid duplicates", ws.Name, len(existingGoals))
-		return
+	byTitle := make(map[string]*entity.Goal, len(existingGoals))
+	for _, g := range existingGoals {
+		byTitle[g.Title] = g
 	}
 
 	seeds := []seedGoal{
@@ -66,28 +68,49 @@ func main() {
 	rng := rand.New(rand.NewSource(42))
 	now := time.Now()
 	from := now.AddDate(0, -3, 0)
+	to := now.AddDate(0, 1, 0)
 
 	for _, s := range seeds {
-		goal := entity.NewGoal(uuid.NewString(), ws.ID, s.title, s.detail, s.condition, now.AddDate(0, 1, 0), s.mode, from)
-		if err := goalRepo.Save(goal); err != nil {
-			log.Fatalf("failed to save goal %q: %v", s.title, err)
+		goal, ok := byTitle[s.title]
+		if !ok {
+			goal = entity.NewGoal(uuid.NewString(), ws.ID, s.title, s.detail, s.condition, to, s.mode, from)
+			if err := goalRepo.Save(goal); err != nil {
+				log.Fatalf("failed to save goal %q: %v", s.title, err)
+			}
+			log.Printf("created goal %q", s.title)
 		}
 
-		count := 0
-		for d := from; !d.After(now); d = d.AddDate(0, 0, 1) {
+		existingTasks, err := taskRepo.FindByGoalIDAndDateRange(goal.ID, from, to)
+		if err != nil {
+			log.Fatalf("failed to list existing tasks for %q: %v", s.title, err)
+		}
+		hasTask := make(map[string]bool, len(existingTasks))
+		for _, t := range existingTasks {
+			hasTask[t.Date.Format(dateLayout)] = true
+		}
+
+		added := 0
+		for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
+			key := d.Format(dateLayout)
+			if hasTask[key] {
+				continue
+			}
 			if rng.Float64() < s.skipRate {
 				continue
 			}
+
 			task := entity.NewDailyTask(uuid.NewString(), goal.ID, d, s.title, d)
-			task.Done = rng.Float64() < s.doneRate
-			if err := taskRepo.Save(task); err != nil {
-				log.Fatalf("failed to save daily task for %q on %s: %v", s.title, d.Format("2006-01-02"), err)
+			if !d.After(now) {
+				task.Done = rng.Float64() < s.doneRate
 			}
-			count++
+			if err := taskRepo.Save(task); err != nil {
+				log.Fatalf("failed to save daily task for %q on %s: %v", s.title, key, err)
+			}
+			added++
 		}
 
-		log.Printf("seeded goal %q with %d daily tasks", s.title, count)
+		log.Printf("goal %q: added %d daily task(s) (existing left untouched)", s.title, added)
 	}
 
-	log.Printf("seed complete: workspace=%s from=%s to=%s", ws.Name, from.Format("2006-01-02"), now.Format("2006-01-02"))
+	log.Printf("seed complete: workspace=%s from=%s to=%s (re-run anytime to top up new days)", ws.Name, from.Format(dateLayout), to.Format(dateLayout))
 }
