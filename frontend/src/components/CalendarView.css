@@ -12,6 +12,11 @@
   gap: 0.5rem;
 }
 
+.period-nav button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
 .period-label {
   min-width: 8rem;
   text-align: center;
@@ -32,6 +37,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-height: 2.75rem;
   cursor: pointer;
 }
 

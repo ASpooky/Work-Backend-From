@@ -19,18 +19,33 @@
 
 .app form {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.75rem;
   margin-top: 1rem;
+  max-width: 24rem;
 }
 
-.app form input,
-.app form select {
-  flex: 1 1 auto;
+.app form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.app form button {
+  align-self: flex-start;
 }
 
 .app .error {
   color: var(--danger);
+}
+
+.app .hint {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text);
+  opacity: 0.8;
 }
 
 .app .workspace {

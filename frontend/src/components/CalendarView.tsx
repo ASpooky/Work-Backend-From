@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, type DailyTask, type GoalCalendar } from '../api'
 import { startOfPeriod, endOfPeriod, shiftPeriod, formatISODate, formatPeriodLabel, eachDate } from '../date'
+import { toUserMessage } from '../errors'
 import WeekPathView from './WeekPathView'
 import GoalProgressList from './GoalProgressList'
 import './CalendarView.css'
@@ -20,7 +21,7 @@ function CalendarView({ workspaceId, refreshKey }: Props) {
     api
       .listDailyTasks(formatISODate(new Date()))
       .then(setDayTasks)
-      .catch((err) => setError(String(err)))
+      .catch((err) => setError(toUserMessage(err)))
   }, [refreshKey])
 
   useEffect(() => {
@@ -29,7 +30,7 @@ function CalendarView({ workspaceId, refreshKey }: Props) {
     api
       .getCalendar(workspaceId, formatISODate(from), formatISODate(to))
       .then(setCalendar)
-      .catch((err) => setError(String(err)))
+      .catch((err) => setError(toUserMessage(err)))
   }, [anchor, workspaceId, refreshKey])
 
   const from = startOfPeriod('week', anchor)
@@ -44,10 +45,10 @@ function CalendarView({ workspaceId, refreshKey }: Props) {
       api
         .getCalendar(workspaceId, formatISODate(from), formatISODate(to))
         .then(setCalendar)
-        .catch((err) => setError(String(err)))
+        .catch((err) => setError(toUserMessage(err)))
     } catch (err) {
       setDayTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, done: !nextDone } : t)))
-      setError(String(err))
+      setError(toUserMessage(err))
     }
   }
 
@@ -55,11 +56,19 @@ function CalendarView({ workspaceId, refreshKey }: Props) {
     <section className="calendar">
       <div className="calendar-controls">
         <div className="period-nav">
-          <button type="button" onClick={() => setAnchor((prev) => shiftPeriod('week', prev, -1))}>
+          <button
+            type="button"
+            aria-label="前の週"
+            onClick={() => setAnchor((prev) => shiftPeriod('week', prev, -1))}
+          >
             &lt;
           </button>
           <span className="period-label">{formatPeriodLabel('week', anchor)}</span>
-          <button type="button" onClick={() => setAnchor((prev) => shiftPeriod('week', prev, 1))}>
+          <button
+            type="button"
+            aria-label="次の週"
+            onClick={() => setAnchor((prev) => shiftPeriod('week', prev, 1))}
+          >
             &gt;
           </button>
         </div>

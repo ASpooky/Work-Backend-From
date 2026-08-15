@@ -31,7 +31,7 @@ function WeekPathView({ calendar, days }: Props) {
         <GoalLane key={gc.goal.id} goalCalendar={gc} dayKeys={dayKeys} />
       ))}
 
-      {calendar.length === 0 && <p className="week-path-empty">No goals yet.</p>}
+      {calendar.length === 0 && <p className="week-path-empty">まだ目標がありません</p>}
     </div>
   )
 }
