@@ -38,7 +38,7 @@ func (r *GoalRepository) FindByWorkspaceID(workspaceID string) ([]*entity.Goal, 
 	}
 	defer rows.Close()
 
-	var goals []*entity.Goal
+	goals := []*entity.Goal{}
 	for rows.Next() {
 		var id, wsID, title, detail, achievementCondition, endDate, mode, status, createdAt string
 		if err := rows.Scan(&id, &wsID, &title, &detail, &achievementCondition, &endDate, &mode, &status, &createdAt); err != nil {

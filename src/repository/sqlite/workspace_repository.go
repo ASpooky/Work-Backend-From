@@ -30,7 +30,7 @@ func (r *WorkspaceRepository) FindAll() ([]*entity.WorkSpace, error) {
 	}
 	defer rows.Close()
 
-	var workspaces []*entity.WorkSpace
+	workspaces := []*entity.WorkSpace{}
 	for rows.Next() {
 		var id, userID, name, createdAt string
 		if err := rows.Scan(&id, &userID, &name, &createdAt); err != nil {
