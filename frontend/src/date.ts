@@ -72,6 +72,14 @@ export function formatPeriodLabel(scale: Scale, anchor: Date): string {
   }
 }
 
+export function daysUntil(isoDate: string): number {
+  const target = new Date(isoDate)
+  const targetMidnight = new Date(target.getFullYear(), target.getMonth(), target.getDate())
+  const now = new Date()
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.round((targetMidnight.getTime() - todayMidnight.getTime()) / 86_400_000)
+}
+
 export function eachDate(from: Date, to: Date): Date[] {
   const days: Date[] = []
   const cursor = new Date(from)

@@ -35,6 +35,7 @@ function CalendarView({ workspaceId, refreshKey }: Props) {
   const from = startOfPeriod('week', anchor)
   const to = endOfPeriod('week', anchor)
   const days = eachDate(from, to)
+  const modeByGoalId = new Map(calendar.map((gc) => [gc.goal.id, gc.goal.mode]))
 
   async function handleToggleDone(task: DailyTask) {
     const nextDone = !task.done
@@ -84,6 +85,11 @@ function CalendarView({ workspaceId, refreshKey }: Props) {
             <li key={task.id}>
               <label className="task-item">
                 <input type="checkbox" checked={task.done} onChange={() => handleToggleDone(task)} />
+                {modeByGoalId.get(task.goal_id) === 'strict' && (
+                  <span className="task-item-strict" title="必達">
+                    必達
+                  </span>
+                )}
                 <span className={task.done ? 'task-item-done' : ''}>{task.content}</span>
               </label>
             </li>

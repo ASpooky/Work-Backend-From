@@ -52,6 +52,16 @@
   text-decoration: line-through;
 }
 
+.task-item-strict {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
 .task-list {
   margin-top: 0;
 }

@@ -39,7 +39,9 @@ function SettingsPage() {
       </section>
 
       <section>
-        <h2>AI連携</h2>
+        <h2>
+          AI連携 <span className="badge-unimplemented">未実装</span>
+        </h2>
         <p className="settings-note">
           ここで保存した API キーは今のところブラウザのローカルストレージに保存されるだけで、まだどの機能からも参照されていません。
         </p>

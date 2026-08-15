@@ -98,3 +98,15 @@
   font-size: 0.8rem;
   color: var(--accent);
 }
+
+.badge-unimplemented {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  vertical-align: middle;
+}

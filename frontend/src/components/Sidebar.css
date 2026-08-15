@@ -42,6 +42,7 @@
   font-size: 0.9rem;
   color: var(--sidebar-text);
   text-decoration: none;
+  border-left: 2px solid transparent;
 }
 
 .sidebar-nav-item:hover {
@@ -52,4 +53,5 @@
   background: var(--sidebar-bg-raised);
   color: var(--sidebar-text-strong);
   font-weight: 500;
+  border-left-color: var(--accent);
 }

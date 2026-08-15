@@ -1,6 +1,7 @@
 import { useState, type SubmitEvent } from 'react'
 import { api, type Goal, type Workspace } from '../api'
 import { toUserMessage } from '../errors'
+import { daysUntil } from '../date'
 
 function todayISO(): string {
   const now = new Date()
@@ -79,11 +80,14 @@ function RegisterPage({ workspace, goals, onCreated }: Props) {
             目標
             <select value={taskGoalId} onChange={(e) => setTaskGoalId(e.target.value)} required>
               <option value="">目標を選択</option>
-              {goals.map((goal) => (
-                <option key={goal.id} value={goal.id}>
-                  {goal.title}
-                </option>
-              ))}
+              {goals.map((goal) => {
+                const left = daysUntil(goal.end_date)
+                return (
+                  <option key={goal.id} value={goal.id}>
+                    {goal.title} ・ {left >= 0 ? `あと${left}日` : '期限切れ'}
+                  </option>
+                )
+              })}
             </select>
           </label>
           <label>
