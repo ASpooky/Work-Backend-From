@@ -3,7 +3,6 @@ import { api, type DailyTask, type GoalCalendar } from '../api'
 import { startOfPeriod, endOfPeriod, shiftPeriod, formatISODate, formatPeriodLabel, eachDate } from '../date'
 import { toUserMessage } from '../errors'
 import WeekPathView from './WeekPathView'
-import GoalProgressList from './GoalProgressList'
 import './CalendarView.css'
 
 type Props = {
@@ -92,8 +91,6 @@ function CalendarView({ workspaceId, refreshKey }: Props) {
           {dayTasks.length === 0 && <li>今日のタスクはありません</li>}
         </ul>
       </div>
-
-      <GoalProgressList calendar={calendar} />
     </section>
   )
 }

@@ -10,7 +10,6 @@
   --accent-bg: rgba(94, 106, 210, 0.08);
   --accent-border: rgba(94, 106, 210, 0.35);
   --danger: #e5484d;
-  --success: #46a758;
 
   --sans: 'Inter Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: 'Inter Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -140,4 +139,13 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
