@@ -1,36 +1,88 @@
 # Work-Backend-From
 
-このリポジトリで行いたいこと。
-目標管理を一日単位のタスクにまで落とし込みたい。
+A personal goal-tracking app: break a long-term goal down into daily tasks, work through them one day at a time, and let an AI coach help you set the goal up and revisit it later.
 
-## 基本仕様
+Single-user, no authentication — built for personal / NAS-hosted use.
 
-- 目標を設定できる　
-- 目標(タイトル、詳細、達成条件、終了日)
-- 目標までの一日一日を何ができるか書き込める。
-- mode: 
-    strict:
-        一日でも達成できなければ目標の達成が一日ずれます
-    want :
-        一日達成できなくても目標日はずれない
-- 一日にやることがフォーカスできてタスクリストにできる
-    - イメージ：
-        - 目標は一直線上のカレンダーのようにつながっていて、今日のタスクが最終的な目標につながっていることが意識できている。
-        - フォーカスモードはすべての目標の「今日」のタスクリストのみ表示され今日に集中できる。（基本はこっちかなぁ）
-        - タスク管理時は全体的な目標や分割された目標が一望できる感じ。
-- workspace：
-    目標の大きな分類ができる。privateや職場など自分でラベリングできる。
-    allという全workspaceを一望できるmodeもある
-- aiが操作しやすい
+## Concept
 
-## メモ
+A goal (title, detail, an achievement condition, a deadline) turns into a straight line of daily tasks connecting today to that deadline. Two commitment modes:
 
-- 目標の逆算して一日に落とし込むことは最初は荒くてもいい。なぜなら、それがどれくらいで達成できるかなんとなくわかるようになるにはある程度の経験やその分野の知見が必要になるから。
-- 最もコアな部分は分解や設定や再設計をaiがしやすくしてくれることでそのやり直しや落とし込みを簡単にする。
-- 一日にすることが分解できてれば継続しやすい
+- **strict** — missing a day doesn't fail the goal, it postpones it: the whole remaining schedule and the deadline shift forward by one day. How many times this has happened is tracked as the goal's postpone count.
+- **want** — missing a day just... doesn't move anything. No pressure.
 
-## 技術的な仕様
+Goals live inside **workspaces** (e.g. "private", "work") so unrelated goals don't crowd each other, with an "all workspaces" view when you want the full picture at once.
 
-- タスクは永続化(dbかな？nasとかでホスティングして使えるようにする。dbはsqliteかnasでpostgresとか？)
-- webでやる前提、webMcpを調べるかcliでrest clientを使う？
-- desktopもつくってみたいなぁ。(先にcore/ web/ desktop/みたいに作ること前提としておいてもいいかもしれない。)
+## Features
+
+- **Calendar** — a week-at-a-time view of every goal as a row of stepper nodes (done / missed-and-postponed / upcoming / milestone), plus a checklist of just today's tasks.
+- **Goals list** — every goal in the current workspace (or across all of them), independent of what's scheduled this week.
+- **Goal detail** — achievement rate, done/scheduled counts, postpone count, days remaining; edit the goal directly.
+- **AI goal planning** — chat with an AI coach (Gemini) to shape a new goal's intensity and deadline, then have it propose a goal plus a recurring daily-task schedule; review and edit before anything is created.
+- **AI goal review** — the same idea for an *existing* goal: chat about what needs to change (extend the deadline, adjust the condition, ...) with the AI already aware of the goal's current state and progress, then review its proposed revision before saving it.
+- **AI summary** — a short natural-language read on how a goal is actually going, given its real progress data.
+- **Conversations persist** — every AI chat is saved per workspace (or per goal, for goal-review threads) so past context isn't lost between sessions.
+
+AI features are optional: the backend runs fine without a Gemini API key, it just skips registering the `/ai/*` routes.
+
+## Tech stack
+
+- **Backend**: Go, `net/http`, SQLite (`modernc.org/sqlite`, pure Go / no CGO — keeps cross-compilation simple for a future NAS or desktop target)
+- **Frontend**: React 19, TypeScript, Vite, `react-router-dom`
+- **AI**: Google Gemini API, called directly over REST (not the CLI) for real JSON-schema-constrained structured output
+
+## Running it
+
+### Backend
+
+```sh
+go run ./src
+```
+
+Listens on `:8080`, creates/migrates `app.db` in the working directory on first run, and seeds a default `private` workspace.
+
+To enable the AI features, put a Gemini API key in `.env` (or `src/.env`) before starting:
+
+```
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-3.7-flash   # optional, this is the default
+```
+
+### Frontend
+
+```sh
+cd frontend
+npm install
+npm run dev
+```
+
+Expects the backend at `http://localhost:8080`.
+
+### Seeding sample data
+
+```sh
+go run ./cmd/seed
+```
+
+Populates `app.db` with a few example goals and a plausible task history. Idempotent — safe to re-run.
+
+## Screenshots
+
+_TODO_
+
+## Layout
+
+```
+src/
+  entity/            domain model (Goal, DailyTask, Workspace, Conversation, ...)
+  usecase/            application logic, one subpackage per aggregate
+  repository/sqlite/  persistence
+  handler/httpapi/    HTTP layer
+  infra/              clock, id generation, the Gemini client
+frontend/src/
+  pages/               routed views
+  components/          shared UI (calendar, sidebar, ...)
+cmd/seed/              sample-data generator
+```
+
+See `entity.md` for the full data model.
