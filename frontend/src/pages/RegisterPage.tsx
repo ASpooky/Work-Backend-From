@@ -1,7 +1,9 @@
-import { useState, type SubmitEvent } from 'react'
+import { useEffect, useState, type SubmitEvent } from 'react'
 import { api, type Goal, type Workspace } from '../api'
 import { toUserMessage } from '../errors'
 import { daysUntil } from '../date'
+
+const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
 
 function todayISO(): string {
   const now = new Date()
@@ -10,6 +12,8 @@ function todayISO(): string {
   const dd = String(now.getDate()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd}`
 }
+
+type RecurrenceMode = 'none' | 'interval' | 'weekly'
 
 type Props = {
   workspace: Workspace
@@ -28,8 +32,23 @@ function RegisterPage({ workspace, goals, onCreated }: Props) {
 
   const [taskGoalId, setTaskGoalId] = useState(() => localStorage.getItem('goal-tracker:last-task-goal') ?? '')
   const [taskContent, setTaskContent] = useState('')
+  const [recurrenceMode, setRecurrenceMode] = useState<RecurrenceMode>('none')
+  const [intervalDays, setIntervalDays] = useState(1)
+  const [weekdays, setWeekdays] = useState<number[]>([])
+  const [startDate, setStartDate] = useState(todayISO())
+  const [endDate, setEndDate] = useState('')
 
   const today = todayISO()
+
+  useEffect(() => {
+    if (!taskGoalId || endDate) return
+    const goal = goals.find((g) => g.id === taskGoalId)
+    if (goal) setEndDate(goal.end_date.slice(0, 10))
+  }, [taskGoalId, goals, endDate])
+
+  function toggleWeekday(day: number) {
+    setWeekdays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()))
+  }
 
   async function handleCreateGoal(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -55,12 +74,26 @@ function RegisterPage({ workspace, goals, onCreated }: Props) {
   async function handleCreateTask(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!taskGoalId) return
+    if (recurrenceMode === 'weekly' && weekdays.length === 0) {
+      setError('曜日を1つ以上選択してください')
+      return
+    }
+
     try {
-      await api.createDailyTask({
-        goal_id: taskGoalId,
-        date: today,
-        content: taskContent,
-      })
+      if (recurrenceMode === 'none') {
+        await api.createDailyTask({ goal_id: taskGoalId, date: today, content: taskContent })
+      } else {
+        await api.createRecurringDailyTasks({
+          goal_id: taskGoalId,
+          content: taskContent,
+          start_date: startDate,
+          end_date: endDate,
+          rule:
+            recurrenceMode === 'interval'
+              ? { type: 'interval', interval_days: intervalDays }
+              : { type: 'weekly', weekdays },
+        })
+      }
       localStorage.setItem('goal-tracker:last-task-goal', taskGoalId)
       setTaskContent('')
       onCreated()
@@ -74,7 +107,7 @@ function RegisterPage({ workspace, goals, onCreated }: Props) {
       {error && <p className="error">{error}</p>}
 
       <section>
-        <h2>今日のタスクを追加 ({today})</h2>
+        <h2>タスクを追加</h2>
         <form onSubmit={handleCreateTask}>
           <label>
             目標
@@ -99,6 +132,87 @@ function RegisterPage({ workspace, goals, onCreated }: Props) {
               required
             />
           </label>
+
+          <div className="recurrence-picker">
+            <div className="recurrence-mode-options">
+              <label className="settings-radio">
+                <input
+                  type="radio"
+                  name="recurrence"
+                  checked={recurrenceMode === 'none'}
+                  onChange={() => setRecurrenceMode('none')}
+                />
+                今日だけ
+              </label>
+              <label className="settings-radio">
+                <input
+                  type="radio"
+                  name="recurrence"
+                  checked={recurrenceMode === 'interval'}
+                  onChange={() => setRecurrenceMode('interval')}
+                />
+                間隔で繰り返す
+              </label>
+              <label className="settings-radio">
+                <input
+                  type="radio"
+                  name="recurrence"
+                  checked={recurrenceMode === 'weekly'}
+                  onChange={() => setRecurrenceMode('weekly')}
+                />
+                曜日を指定
+              </label>
+            </div>
+
+            {recurrenceMode === 'interval' && (
+              <label className="recurrence-detail">
+                間隔
+                <div className="interval-input">
+                  <input
+                    type="number"
+                    min={1}
+                    value={intervalDays}
+                    onChange={(e) => setIntervalDays(Math.max(1, Number(e.target.value) || 1))}
+                  />
+                  <span>
+                    日おき（{intervalDays === 1 ? '毎日' : intervalDays === 2 ? '隔日' : `${intervalDays}日ごと`}）
+                  </span>
+                </div>
+              </label>
+            )}
+
+            {recurrenceMode === 'weekly' && (
+              <div className="recurrence-detail">
+                曜日
+                <div className="weekday-picker">
+                  {WEEKDAY_LABELS.map((label, i) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className={weekdays.includes(i) ? 'active' : ''}
+                      onClick={() => toggleWeekday(i)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {recurrenceMode !== 'none' && (
+              <div className="recurrence-dates">
+                <label>
+                  開始日
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                </label>
+                <label>
+                  終了日
+                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
+                </label>
+              </div>
+            )}
+          </div>
+
           <button type="submit">タスクを追加</button>
         </form>
         {goals.length === 0 && <p className="hint">先に下で目標を作成してください。</p>}

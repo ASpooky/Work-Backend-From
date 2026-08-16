@@ -71,6 +71,13 @@ export const api = {
     request<DailyTask[]>(`/daily-tasks?date=${encodeURIComponent(date)}`),
   createDailyTask: (body: { goal_id: string; date: string; content: string }) =>
     request<DailyTask>('/daily-tasks', { method: 'POST', body: JSON.stringify(body) }),
+  createRecurringDailyTasks: (body: {
+    goal_id: string
+    content: string
+    start_date: string
+    end_date: string
+    rule: { type: 'interval'; interval_days: number } | { type: 'weekly'; weekdays: number[] }
+  }) => request<DailyTask[]>('/daily-tasks/recurring', { method: 'POST', body: JSON.stringify(body) }),
   updateDailyTaskDone: (id: string, done: boolean) =>
     request<{ id: string; done: boolean }>(`/daily-tasks/${encodeURIComponent(id)}`, {
       method: 'PATCH',
