@@ -23,6 +23,41 @@ func (r *WorkspaceRepository) Save(workspace *entity.WorkSpace) error {
 	return err
 }
 
+func (r *WorkspaceRepository) UpdateName(id, name string) error {
+	_, err := r.db.Exec(`UPDATE workspaces SET name = ? WHERE id = ?`, name, id)
+	return err
+}
+
+// Delete removes a workspace and everything scoped to it (goals, their
+// daily tasks, AI conversations, and those conversations' messages) in a
+// single transaction, since SQLite foreign keys aren't enforced/cascaded
+// here (no PRAGMA foreign_keys, no ON DELETE CASCADE in schema.sql).
+func (r *WorkspaceRepository) Delete(id string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`DELETE FROM conversation_messages WHERE conversation_id IN (SELECT id FROM conversations WHERE workspace_id = ?)`, []any{id}},
+		{`DELETE FROM conversations WHERE workspace_id = ?`, []any{id}},
+		{`DELETE FROM daily_tasks WHERE goal_id IN (SELECT id FROM goals WHERE workspace_id = ?)`, []any{id}},
+		{`DELETE FROM goals WHERE workspace_id = ?`, []any{id}},
+		{`DELETE FROM workspaces WHERE id = ?`, []any{id}},
+	}
+	for _, s := range statements {
+		if _, err := tx.Exec(s.query, s.args...); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 func (r *WorkspaceRepository) FindAll() ([]*entity.WorkSpace, error) {
 	rows, err := r.db.Query(`SELECT id, user_id, name, created_at FROM workspaces ORDER BY created_at`)
 	if err != nil {

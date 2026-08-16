@@ -39,6 +39,8 @@ func main() {
 
 	createWorkspace := workspace.NewCreateWorkspaceUsecase(workspaceRepo, ids, clk)
 	listWorkspaces := workspace.NewListWorkspacesUsecase(workspaceRepo)
+	renameWorkspace := workspace.NewRenameWorkspaceUsecase(workspaceRepo)
+	deleteWorkspace := workspace.NewDeleteWorkspaceUsecase(workspaceRepo)
 	createGoal := goal.NewCreateGoalUsecase(goalRepo, ids, clk)
 	listGoals := goal.NewListGoalsUsecase(goalRepo)
 	createDailyTask := dailytask.NewCreateDailyTaskUsecase(dailyTaskRepo, ids, clk)
@@ -56,7 +58,7 @@ func main() {
 		log.Fatalf("failed to catch up missed tasks: %v", err)
 	}
 
-	workspaceHandler := httpapi.NewWorkspaceHandler(createWorkspace, listWorkspaces)
+	workspaceHandler := httpapi.NewWorkspaceHandler(createWorkspace, listWorkspaces, renameWorkspace, deleteWorkspace)
 	goalHandler := httpapi.NewGoalHandler(createGoal, listGoals)
 	dailyTaskHandler := httpapi.NewDailyTaskHandler(createDailyTask, createRecurringDailyTasks, listDailyTasks, updateDailyTaskDone)
 	calendarHandler := httpapi.NewCalendarHandler(getCalendar)
@@ -64,6 +66,8 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /workspaces", workspaceHandler.Create)
 	mux.HandleFunc("GET /workspaces", workspaceHandler.List)
+	mux.HandleFunc("PATCH /workspaces/{id}", workspaceHandler.Rename)
+	mux.HandleFunc("DELETE /workspaces/{id}", workspaceHandler.Delete)
 	mux.HandleFunc("POST /goals", goalHandler.Create)
 	mux.HandleFunc("GET /goals", goalHandler.List)
 	mux.HandleFunc("POST /daily-tasks", dailyTaskHandler.Create)

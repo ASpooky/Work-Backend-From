@@ -23,8 +23,11 @@ func (s stubClock) Now() time.Time {
 }
 
 type mockRepository struct {
-	saved   *entity.WorkSpace
-	findAll []*entity.WorkSpace
+	saved       *entity.WorkSpace
+	findAll     []*entity.WorkSpace
+	updatedID   string
+	updatedName string
+	deletedID   string
 }
 
 func (m *mockRepository) Save(workspace *entity.WorkSpace) error {
@@ -34,4 +37,15 @@ func (m *mockRepository) Save(workspace *entity.WorkSpace) error {
 
 func (m *mockRepository) FindAll() ([]*entity.WorkSpace, error) {
 	return m.findAll, nil
+}
+
+func (m *mockRepository) UpdateName(id, name string) error {
+	m.updatedID = id
+	m.updatedName = name
+	return nil
+}
+
+func (m *mockRepository) Delete(id string) error {
+	m.deletedID = id
+	return nil
 }
