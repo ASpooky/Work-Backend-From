@@ -8,36 +8,7 @@
 }
 
 .week-path-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: 1.1rem;
-}
-
-.week-path-eyebrow {
-  font-size: 0.7rem;
-  color: var(--text);
-  letter-spacing: 0.06em;
-  margin-bottom: 4px;
-}
-
-.week-path-total {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.week-path-total-num {
-  font-size: 2.2rem;
-  font-weight: 590;
-  color: var(--text-h);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.week-path-total-denom {
-  font-size: 0.9rem;
-  color: var(--text);
+  margin-bottom: 0.85rem;
 }
 
 .week-path-range {
@@ -111,6 +82,10 @@
   vertical-align: top;
 }
 
+.week-path-cell.muted {
+  opacity: 0.55;
+}
+
 .week-path-seg {
   position: absolute;
   top: 25px;
@@ -159,8 +134,11 @@
 }
 
 .node-missed {
-  border: 1px solid var(--danger);
-  color: var(--danger);
+  border: 1px solid var(--border);
+}
+
+.node-missed .week-path-node-dot {
+  background: var(--border-strong);
 }
 
 .node-today {
@@ -194,36 +172,3 @@
   margin-inline: auto;
 }
 
-.week-path-week-total {
-  min-width: 4.5rem;
-  padding-left: 12px;
-  vertical-align: top;
-  padding-top: 14px;
-}
-
-.week-path-week-total-num {
-  font-size: 0.8rem;
-  color: var(--text-h);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.week-path-week-total-sub {
-  font-size: 0.65rem;
-  color: var(--text);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.week-path-bar {
-  height: 3px;
-  border-radius: 2px;
-  background: var(--border);
-  margin-top: 5px;
-  overflow: hidden;
-}
-
-.week-path-bar-fill {
-  height: 3px;
-  background: var(--accent);
-}

@@ -20,42 +20,13 @@ function dayNodeState(status: DayStatus, isMilestone: boolean, dayKey: string, t
   return 'upcoming'
 }
 
-function countWeek(days: Record<string, { status: DayStatus }>, dayKeys: string[]) {
-  let scheduled = 0
-  let done = 0
-  for (const key of dayKeys) {
-    const status = days[key]?.status ?? 'no_task'
-    if (status === 'no_task') continue
-    scheduled++
-    if (status === 'done') done++
-  }
-  return { scheduled, done }
-}
-
 function WeekPathView({ calendar, days }: Props) {
   const dayKeys = days.map(formatISODate)
   const todayKey = formatISODate(new Date())
 
-  const total = calendar.reduce(
-    (acc, gc) => {
-      const { scheduled, done } = countWeek(gc.days, dayKeys)
-      acc.scheduled += scheduled
-      acc.done += done
-      return acc
-    },
-    { done: 0, scheduled: 0 },
-  )
-
   return (
     <div className="week-path">
       <div className="week-path-header">
-        <div>
-          <div className="week-path-eyebrow">今週の消化</div>
-          <div className="week-path-total">
-            <span className="week-path-total-num">{total.done}</span>
-            <span className="week-path-total-denom">/ {total.scheduled} タスク</span>
-          </div>
-        </div>
         <span className="week-path-range">{formatJapaneseRange(days)}</span>
       </div>
 
@@ -77,7 +48,6 @@ function WeekPathView({ calendar, days }: Props) {
                     {WEEKDAY_LABELS[i]} {d.getDate()}
                   </th>
                 ))}
-                <th scope="col">今週</th>
               </tr>
             </thead>
             <tbody>
@@ -103,8 +73,6 @@ function GoalRow({
 }) {
   const goal = goalCalendar.goal
   const goalEndKey = goal.end_date.slice(0, 10)
-  const { scheduled, done } = countWeek(goalCalendar.days, dayKeys)
-  const percent = scheduled === 0 ? null : Math.round((done / scheduled) * 100)
 
   return (
     <tr>
@@ -128,13 +96,6 @@ function GoalRow({
           />
         )
       })}
-      <td className="week-path-week-total">
-        <div className="week-path-week-total-num">{percent === null ? '—' : `${percent}%`}</div>
-        <div className="week-path-week-total-sub">{scheduled === 0 ? '予定なし' : `${done}/${scheduled}`}</div>
-        <div className="week-path-bar">
-          <div className="week-path-bar-fill" style={{ width: `${percent ?? 0}%` }} />
-        </div>
-      </td>
     </tr>
   )
 }
@@ -152,7 +113,7 @@ function DayCell({
 }) {
   const segFilled = state === 'done' || state === 'milestone'
   return (
-    <td className="week-path-cell">
+    <td className={`week-path-cell${state === 'missed' ? ' muted' : ''}`}>
       <div
         className={`week-path-seg${segFilled ? ' filled' : ''}`}
         style={{ left: isFirst ? '50%' : 0, right: isLast ? '50%' : 0 }}
@@ -173,8 +134,8 @@ function NodeIcon({ state }: { state: NodeState }) {
       )
     case 'missed':
       return (
-        <span className="week-path-node node-missed" aria-label="未達成">
-          ✕
+        <span className="week-path-node node-missed" aria-label="先送り中">
+          <span className="week-path-node-dot" />
         </span>
       )
     case 'today-pending':
