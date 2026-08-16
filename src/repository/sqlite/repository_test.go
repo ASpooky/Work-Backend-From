@@ -79,7 +79,7 @@ func TestGoalRepository_SaveAndFindByWorkspaceID(t *testing.T) {
 	}
 }
 
-func TestGoalRepository_UpdateEndDate(t *testing.T) {
+func TestGoalRepository_UpdatePostponement(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
 	db, err := Open(path)
 	if err != nil {
@@ -101,16 +101,129 @@ func TestGoalRepository_UpdateEndDate(t *testing.T) {
 	}
 
 	newEndDate := time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)
-	if err := repo.UpdateEndDate(goal.ID, newEndDate); err != nil {
-		t.Fatalf("UpdateEndDate() returned unexpected error: %v", err)
+	if err := repo.UpdatePostponement(goal.ID, newEndDate, 1); err != nil {
+		t.Fatalf("UpdatePostponement() returned unexpected error: %v", err)
 	}
 
 	got, err := repo.FindByWorkspaceID(workspace.ID)
 	if err != nil {
 		t.Fatalf("FindByWorkspaceID() returned unexpected error: %v", err)
 	}
-	if len(got) != 1 || !got[0].EndDate.Equal(newEndDate) {
-		t.Fatalf("FindByWorkspaceID() after UpdateEndDate = %+v, want EndDate=%v", got, newEndDate)
+	if len(got) != 1 || !got[0].EndDate.Equal(newEndDate) || got[0].PostponeCount != 1 {
+		t.Fatalf("FindByWorkspaceID() after UpdatePostponement = %+v, want EndDate=%v PostponeCount=1", got, newEndDate)
+	}
+}
+
+func TestGoalRepository_FindByID(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	workspace := entity.NewWorkSpace("workspace-001", DefaultUserID, "private", time.Now())
+	if err := workspaceRepo.Save(workspace); err != nil {
+		t.Fatalf("workspaceRepo.Save() returned unexpected error: %v", err)
+	}
+
+	repo := NewGoalRepository(db)
+	goal := entity.NewGoal("goal-001", workspace.ID, "Run a marathon", "detail", "condition", time.Now(), entity.ModeStrict, time.Now())
+	if err := repo.Save(goal); err != nil {
+		t.Fatalf("Save() returned unexpected error: %v", err)
+	}
+
+	got, err := repo.FindByID(goal.ID)
+	if err != nil {
+		t.Fatalf("FindByID() returned unexpected error: %v", err)
+	}
+	if got == nil || got.ID != goal.ID || got.Title != goal.Title {
+		t.Errorf("FindByID() = %+v, want %+v", got, goal)
+	}
+
+	none, err := repo.FindByID("does-not-exist")
+	if err != nil {
+		t.Fatalf("FindByID() for a missing id returned unexpected error: %v", err)
+	}
+	if none != nil {
+		t.Errorf("FindByID() for a missing id = %+v, want nil", none)
+	}
+}
+
+func TestGoalRepository_Update(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	workspace := entity.NewWorkSpace("workspace-001", DefaultUserID, "private", time.Now())
+	if err := workspaceRepo.Save(workspace); err != nil {
+		t.Fatalf("workspaceRepo.Save() returned unexpected error: %v", err)
+	}
+
+	repo := NewGoalRepository(db)
+	goal := entity.NewGoal("goal-001", workspace.ID, "Run a marathon", "detail", "condition", time.Now(), entity.ModeStrict, time.Now())
+	if err := repo.Save(goal); err != nil {
+		t.Fatalf("Save() returned unexpected error: %v", err)
+	}
+
+	newEndDate := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+	updated := entity.NewGoal(goal.ID, workspace.ID, "フルマラソン完走", "新しいdetail", "新しい達成条件", newEndDate, entity.ModeWant, goal.CreatedAt)
+	if err := repo.Update(updated); err != nil {
+		t.Fatalf("Update() returned unexpected error: %v", err)
+	}
+
+	got, err := repo.FindByID(goal.ID)
+	if err != nil {
+		t.Fatalf("FindByID() returned unexpected error: %v", err)
+	}
+	if got.Title != "フルマラソン完走" || got.Detail != "新しいdetail" || got.AchievementCondition != "新しい達成条件" || got.Mode != entity.ModeWant {
+		t.Errorf("FindByID() after Update() = %+v, want the updated fields", got)
+	}
+	if !got.EndDate.Equal(newEndDate) {
+		t.Errorf("EndDate = %v, want %v", got.EndDate, newEndDate)
+	}
+	if got.Status != entity.StatusActive {
+		t.Errorf("Status = %v, want unchanged %v (Update must not touch status)", got.Status, entity.StatusActive)
+	}
+}
+
+func TestGoalRepository_FindAll(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	wsA := entity.NewWorkSpace("workspace-a", DefaultUserID, "A", time.Now())
+	wsB := entity.NewWorkSpace("workspace-b", DefaultUserID, "B", time.Now())
+	for _, ws := range []*entity.WorkSpace{wsA, wsB} {
+		if err := workspaceRepo.Save(ws); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	repo := NewGoalRepository(db)
+	goalA := entity.NewGoal("goal-a", wsA.ID, "Aのgoal", "detail", "cond", time.Now(), entity.ModeStrict, time.Now())
+	goalB := entity.NewGoal("goal-b", wsB.ID, "Bのgoal", "detail", "cond", time.Now(), entity.ModeStrict, time.Now())
+	for _, g := range []*entity.Goal{goalA, goalB} {
+		if err := repo.Save(g); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	got, err := repo.FindAll()
+	if err != nil {
+		t.Fatalf("FindAll() returned unexpected error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("FindAll() returned %d goals, want 2 (across both workspaces)", len(got))
 	}
 }
 
@@ -355,5 +468,59 @@ func TestDailyTaskRepository_ShiftPendingForward(t *testing.T) {
 	}
 	if !byID[before.ID].Date.Equal(time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC)) {
 		t.Errorf("earlier task Date = %v, want unchanged 2026-08-09 (before the shift's fromDate)", byID[before.ID].Date)
+	}
+}
+
+func TestDailyTaskRepository_FindByDateAndWorkspaceID(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	wsA := entity.NewWorkSpace("workspace-a", DefaultUserID, "A", time.Now())
+	wsB := entity.NewWorkSpace("workspace-b", DefaultUserID, "B", time.Now())
+	for _, ws := range []*entity.WorkSpace{wsA, wsB} {
+		if err := workspaceRepo.Save(ws); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	goalRepo := NewGoalRepository(db)
+	goalA := entity.NewGoal("goal-a", wsA.ID, "Aのgoal", "detail", "cond", time.Now(), entity.ModeStrict, time.Now())
+	goalB := entity.NewGoal("goal-b", wsB.ID, "Bのgoal", "detail", "cond", time.Now(), entity.ModeStrict, time.Now())
+	for _, g := range []*entity.Goal{goalA, goalB} {
+		if err := goalRepo.Save(g); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	repo := NewDailyTaskRepository(db)
+	date := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
+	taskA := entity.NewDailyTask("task-a", goalA.ID, date, "Aのタスク", time.Now())
+	taskB := entity.NewDailyTask("task-b", goalB.ID, date, "Bのタスク", time.Now())
+	otherDate := entity.NewDailyTask("task-other-date", goalA.ID, date.AddDate(0, 0, 1), "別の日", time.Now())
+	for _, task := range []*entity.DailyTask{taskA, taskB, otherDate} {
+		if err := repo.Save(task); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	gotA, err := repo.FindByDateAndWorkspaceID(date, wsA.ID)
+	if err != nil {
+		t.Fatalf("FindByDateAndWorkspaceID(A) returned unexpected error: %v", err)
+	}
+	if len(gotA) != 1 || gotA[0].ID != taskA.ID {
+		t.Errorf("FindByDateAndWorkspaceID(A) = %+v, want only task-a", gotA)
+	}
+
+	gotB, err := repo.FindByDateAndWorkspaceID(date, wsB.ID)
+	if err != nil {
+		t.Fatalf("FindByDateAndWorkspaceID(B) returned unexpected error: %v", err)
+	}
+	if len(gotB) != 1 || gotB[0].ID != taskB.ID {
+		t.Errorf("FindByDateAndWorkspaceID(B) = %+v, want only task-b", gotB)
 	}
 }

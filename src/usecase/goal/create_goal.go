@@ -19,6 +19,7 @@ type CreateGoalInput struct {
 type Repository interface {
 	Save(goal *entity.Goal) error
 	FindByWorkspaceID(workspaceID string) ([]*entity.Goal, error)
+	FindAll() ([]*entity.Goal, error)
 }
 
 type CreateGoalUsecase struct {

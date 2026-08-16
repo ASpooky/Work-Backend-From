@@ -24,14 +24,17 @@ func (s stubCatchUpGoalReader) FindByWorkspaceID(workspaceID string) ([]*entity.
 }
 
 type recordingGoalEndDateUpdater struct {
-	calls map[string][]time.Time
+	calls              map[string][]time.Time
+	postponeCountCalls map[string][]int
 }
 
-func (r *recordingGoalEndDateUpdater) UpdateEndDate(id string, endDate time.Time) error {
+func (r *recordingGoalEndDateUpdater) UpdatePostponement(id string, endDate time.Time, postponeCount int) error {
 	if r.calls == nil {
 		r.calls = make(map[string][]time.Time)
+		r.postponeCountCalls = make(map[string][]int)
 	}
 	r.calls[id] = append(r.calls[id], endDate)
+	r.postponeCountCalls[id] = append(r.postponeCountCalls[id], postponeCount)
 	return nil
 }
 
@@ -86,7 +89,7 @@ func TestCatchUpMissedTasksUsecase_Execute(t *testing.T) {
 	}
 
 	if calls := goalUpdater.calls["goal-strict"]; len(calls) != 2 {
-		t.Fatalf("UpdateEndDate called %d times for goal-strict, want 2", len(calls))
+		t.Fatalf("UpdatePostponement called %d times for goal-strict, want 2", len(calls))
 	} else {
 		want := today.AddDate(0, 0, 2)
 		if !calls[len(calls)-1].Equal(want) {
@@ -94,7 +97,11 @@ func TestCatchUpMissedTasksUsecase_Execute(t *testing.T) {
 		}
 	}
 
+	if counts := goalUpdater.postponeCountCalls["goal-strict"]; len(counts) != 2 || counts[len(counts)-1] != 2 {
+		t.Errorf("final postponeCount = %v, want last call to be 2", counts)
+	}
+
 	if _, ok := goalUpdater.calls["goal-want"]; ok {
-		t.Errorf("UpdateEndDate was called for goal-want, want-mode goals must never be postponed")
+		t.Errorf("UpdatePostponement was called for goal-want, want-mode goals must never be postponed")
 	}
 }

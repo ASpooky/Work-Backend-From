@@ -34,6 +34,7 @@ type GetCalendarInput struct {
 
 type GoalReader interface {
 	FindByWorkspaceID(workspaceID string) ([]*entity.Goal, error)
+	FindAll() ([]*entity.Goal, error)
 }
 
 type DailyTaskRangeReader interface {
@@ -50,7 +51,13 @@ func NewGetCalendarUsecase(goals GoalReader, tasks DailyTaskRangeReader) *GetCal
 }
 
 func (u *GetCalendarUsecase) Execute(input GetCalendarInput) ([]GoalCalendar, error) {
-	goals, err := u.goals.FindByWorkspaceID(input.WorkspaceID)
+	var goals []*entity.Goal
+	var err error
+	if input.WorkspaceID == "" {
+		goals, err = u.goals.FindAll()
+	} else {
+		goals, err = u.goals.FindByWorkspaceID(input.WorkspaceID)
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -7,7 +7,8 @@ import (
 )
 
 type ListDailyTasksInput struct {
-	Date time.Time
+	Date        time.Time
+	WorkspaceID string // empty means all workspaces
 }
 
 type ListDailyTasksUsecase struct {
@@ -19,5 +20,8 @@ func NewListDailyTasksUsecase(repo Repository) *ListDailyTasksUsecase {
 }
 
 func (u *ListDailyTasksUsecase) Execute(input ListDailyTasksInput) ([]*entity.DailyTask, error) {
-	return u.repo.FindByDate(input.Date)
+	if input.WorkspaceID == "" {
+		return u.repo.FindByDate(input.Date)
+	}
+	return u.repo.FindByDateAndWorkspaceID(input.Date, input.WorkspaceID)
 }

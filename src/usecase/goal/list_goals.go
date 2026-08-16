@@ -15,5 +15,8 @@ func NewListGoalsUsecase(repo Repository) *ListGoalsUsecase {
 }
 
 func (u *ListGoalsUsecase) Execute(input ListGoalsInput) ([]*entity.Goal, error) {
+	if input.WorkspaceID == "" {
+		return u.repo.FindAll()
+	}
 	return u.repo.FindByWorkspaceID(input.WorkspaceID)
 }

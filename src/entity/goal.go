@@ -27,6 +27,7 @@ type Goal struct {
 	Mode                 GoalMode   `json:"mode"`
 	Status               GoalStatus `json:"status"`
 	CreatedAt            time.Time  `json:"created_at"`
+	PostponeCount        int        `json:"postpone_count"`
 }
 
 func NewGoal(id, workspaceID, title, detail, achievementCondition string, endDate time.Time, mode GoalMode, createdAt time.Time) *Goal {
@@ -48,6 +49,7 @@ func NewGoal(id, workspaceID, title, detail, achievementCondition string, endDat
 func (g *Goal) Postpone() {
 	if g.Mode == ModeStrict {
 		g.EndDate = g.EndDate.AddDate(0, 0, 1)
+		g.PostponeCount++
 	}
 }
 

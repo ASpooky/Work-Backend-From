@@ -43,6 +43,8 @@ func main() {
 	deleteWorkspace := workspace.NewDeleteWorkspaceUsecase(workspaceRepo)
 	createGoal := goal.NewCreateGoalUsecase(goalRepo, ids, clk)
 	listGoals := goal.NewListGoalsUsecase(goalRepo)
+	getGoalStats := usecase.NewGetGoalStatsUsecase(goalRepo, dailyTaskRepo, clk)
+	updateGoal := goal.NewUpdateGoalUsecase(goalRepo)
 	createDailyTask := dailytask.NewCreateDailyTaskUsecase(dailyTaskRepo, ids, clk)
 	createRecurringDailyTasks := dailytask.NewCreateRecurringDailyTasksUsecase(dailyTaskRepo, ids, clk)
 	listDailyTasks := dailytask.NewListDailyTasksUsecase(dailyTaskRepo)
@@ -59,7 +61,7 @@ func main() {
 	}
 
 	workspaceHandler := httpapi.NewWorkspaceHandler(createWorkspace, listWorkspaces, renameWorkspace, deleteWorkspace)
-	goalHandler := httpapi.NewGoalHandler(createGoal, listGoals)
+	goalHandler := httpapi.NewGoalHandler(createGoal, listGoals, getGoalStats, updateGoal)
 	dailyTaskHandler := httpapi.NewDailyTaskHandler(createDailyTask, createRecurringDailyTasks, listDailyTasks, updateDailyTaskDone)
 	calendarHandler := httpapi.NewCalendarHandler(getCalendar)
 
@@ -70,6 +72,8 @@ func main() {
 	mux.HandleFunc("DELETE /workspaces/{id}", workspaceHandler.Delete)
 	mux.HandleFunc("POST /goals", goalHandler.Create)
 	mux.HandleFunc("GET /goals", goalHandler.List)
+	mux.HandleFunc("GET /goals/{id}", goalHandler.Get)
+	mux.HandleFunc("PATCH /goals/{id}", goalHandler.Update)
 	mux.HandleFunc("POST /daily-tasks", dailyTaskHandler.Create)
 	mux.HandleFunc("POST /daily-tasks/recurring", dailyTaskHandler.CreateRecurring)
 	mux.HandleFunc("GET /daily-tasks", dailyTaskHandler.List)
@@ -90,13 +94,15 @@ func main() {
 		listConversations := ai.NewListConversationsUsecase(conversationRepo)
 		getConversation := ai.NewGetConversationUsecase(conversationMessageRepo)
 		planGoal := ai.NewPlanGoalUsecase(geminiClient, conversationMessageRepo, clk)
+		summarizeGoal := ai.NewSummarizeGoalUsecase(goalRepo, dailyTaskRepo, geminiClient, clk)
 
-		aiHandler := httpapi.NewAIHandler(sendMessage, listConversations, getConversation, planGoal)
+		aiHandler := httpapi.NewAIHandler(sendMessage, listConversations, getConversation, planGoal, summarizeGoal)
 		mux.HandleFunc("GET /ai/status", aiHandler.Status)
 		mux.HandleFunc("POST /ai/chat", aiHandler.SendMessage)
 		mux.HandleFunc("GET /ai/conversations", aiHandler.ListConversations)
 		mux.HandleFunc("GET /ai/conversations/{id}/messages", aiHandler.GetConversation)
 		mux.HandleFunc("POST /ai/plan", aiHandler.Plan)
+		mux.HandleFunc("POST /ai/goals/{id}/summary", aiHandler.SummarizeGoal)
 		log.Printf("AI features enabled (model=%s)", model)
 	} else {
 		log.Println("GEMINI_API_KEY not set; AI features disabled")

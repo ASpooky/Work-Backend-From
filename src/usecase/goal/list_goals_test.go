@@ -27,3 +27,21 @@ func TestListGoalsUsecase_Execute(t *testing.T) {
 		t.Errorf("Execute() = %+v, want %+v", got, want)
 	}
 }
+
+func TestListGoalsUsecase_Execute_AllWorkspaces(t *testing.T) {
+	want := []*entity.Goal{
+		entity.NewGoal("goal-a", "workspace-a", "A", "detail", "cond", time.Now(), entity.ModeStrict, time.Now()),
+		entity.NewGoal("goal-b", "workspace-b", "B", "detail", "cond", time.Now(), entity.ModeStrict, time.Now()),
+	}
+
+	repo := &mockRepository{findAll: want}
+	uc := NewListGoalsUsecase(repo)
+
+	got, err := uc.Execute(ListGoalsInput{WorkspaceID: ""})
+	if err != nil {
+		t.Fatalf("Execute() returned unexpected error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Errorf("Execute() with empty WorkspaceID = %+v, want all goals across workspaces", got)
+	}
+}

@@ -145,7 +145,10 @@ func (h *DailyTaskHandler) List(w http.ResponseWriter, r *http.Request) {
 		date = parsed
 	}
 
-	got, err := h.list.Execute(dailytask.ListDailyTasksInput{Date: date})
+	got, err := h.list.Execute(dailytask.ListDailyTasksInput{
+		Date:        date,
+		WorkspaceID: r.URL.Query().Get("workspace_id"),
+	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

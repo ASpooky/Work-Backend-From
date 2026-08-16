@@ -13,6 +13,7 @@ type AIHandler struct {
 	listConversations *ai.ListConversationsUsecase
 	getConversation   *ai.GetConversationUsecase
 	plan              *ai.PlanGoalUsecase
+	summarizeGoal     *ai.SummarizeGoalUsecase
 }
 
 func NewAIHandler(
@@ -20,12 +21,14 @@ func NewAIHandler(
 	listConversations *ai.ListConversationsUsecase,
 	getConversation *ai.GetConversationUsecase,
 	plan *ai.PlanGoalUsecase,
+	summarizeGoal *ai.SummarizeGoalUsecase,
 ) *AIHandler {
 	return &AIHandler{
 		sendMessage:       sendMessage,
 		listConversations: listConversations,
 		getConversation:   getConversation,
 		plan:              plan,
+		summarizeGoal:     summarizeGoal,
 	}
 }
 
@@ -154,4 +157,17 @@ func (h *AIHandler) Plan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *AIHandler) SummarizeGoal(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	got, err := h.summarizeGoal.Execute(r.Context(), ai.GoalSummaryInput{GoalID: id})
+	if err != nil {
+		log.Printf("AI goal summary failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"summary": got.Summary})
 }

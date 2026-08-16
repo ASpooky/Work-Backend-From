@@ -11,7 +11,21 @@ type stubGoalReader struct {
 	goals []*entity.Goal
 }
 
+// FindByWorkspaceID only returns goals whose WorkspaceID actually matches,
+// so a test can tell "scoped to one workspace" apart from "all workspaces"
+// (FindAll) — a stub that ignored workspaceID would make that distinction
+// untestable.
 func (s stubGoalReader) FindByWorkspaceID(workspaceID string) ([]*entity.Goal, error) {
+	matched := []*entity.Goal{}
+	for _, g := range s.goals {
+		if g.WorkspaceID == workspaceID {
+			matched = append(matched, g)
+		}
+	}
+	return matched, nil
+}
+
+func (s stubGoalReader) FindAll() ([]*entity.Goal, error) {
 	return s.goals, nil
 }
 
@@ -70,5 +84,26 @@ func TestGetCalendarUsecase_Execute(t *testing.T) {
 	}
 	if days["2026-08-03"].Content != "" {
 		t.Errorf("2026-08-03 content = %q, want empty", days["2026-08-03"].Content)
+	}
+}
+
+func TestGetCalendarUsecase_Execute_AllWorkspaces(t *testing.T) {
+	goalA := entity.NewGoal("goal-a", "workspace-a", "Aのgoal", "detail", "cond", time.Now(), entity.ModeStrict, time.Now())
+	goalB := entity.NewGoal("goal-b", "workspace-b", "Bのgoal", "detail", "cond", time.Now(), entity.ModeStrict, time.Now())
+
+	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+
+	goals := stubGoalReader{goals: []*entity.Goal{goalA, goalB}}
+	tasks := stubDailyTaskRangeReader{tasksByGoal: map[string][]*entity.DailyTask{}}
+
+	u := NewGetCalendarUsecase(goals, tasks)
+	got, err := u.Execute(GetCalendarInput{WorkspaceID: "", From: from, To: to})
+	if err != nil {
+		t.Fatalf("Execute() returned unexpected error: %v", err)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("Execute() with empty WorkspaceID returned %d goal calendars, want 2 (across all workspaces)", len(got))
 	}
 }

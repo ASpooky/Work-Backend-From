@@ -12,9 +12,9 @@ type CatchUpGoalReader interface {
 	FindByWorkspaceID(workspaceID string) ([]*entity.Goal, error)
 }
 
-// GoalEndDateUpdater persists a goal's postponed EndDate.
+// GoalEndDateUpdater persists a goal's postponed EndDate and PostponeCount.
 type GoalEndDateUpdater interface {
-	UpdateEndDate(id string, endDate time.Time) error
+	UpdatePostponement(id string, endDate time.Time, postponeCount int) error
 }
 
 // MissedTaskFinder locates the single oldest not-done task before a cutoff.
@@ -84,7 +84,7 @@ func (u *CatchUpMissedTasksUsecase) Execute(workspaceID string) error {
 			}
 
 			g.Postpone()
-			if err := u.goalUpdater.UpdateEndDate(g.ID, g.EndDate); err != nil {
+			if err := u.goalUpdater.UpdatePostponement(g.ID, g.EndDate, g.PostponeCount); err != nil {
 				return err
 			}
 		}

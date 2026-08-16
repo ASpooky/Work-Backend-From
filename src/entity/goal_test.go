@@ -22,6 +22,7 @@ func TestNewGoal(t *testing.T) {
 		Mode:                 ModeStrict,
 		Status:               StatusActive,
 		CreatedAt:            createdAt,
+		PostponeCount:        0,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("NewGoal() = %+v, want %+v", got, want)
@@ -38,6 +39,14 @@ func TestGoal_Postpone_StrictMode(t *testing.T) {
 	if !goal.EndDate.Equal(want) {
 		t.Errorf("EndDate = %v, want %v", goal.EndDate, want)
 	}
+	if goal.PostponeCount != 1 {
+		t.Errorf("PostponeCount = %d, want 1", goal.PostponeCount)
+	}
+
+	goal.Postpone()
+	if goal.PostponeCount != 2 {
+		t.Errorf("PostponeCount after second Postpone() = %d, want 2", goal.PostponeCount)
+	}
 }
 
 func TestGoal_Postpone_WantMode(t *testing.T) {
@@ -48,6 +57,9 @@ func TestGoal_Postpone_WantMode(t *testing.T) {
 
 	if !goal.EndDate.Equal(endDate) {
 		t.Errorf("EndDate = %v, want unchanged %v", goal.EndDate, endDate)
+	}
+	if goal.PostponeCount != 0 {
+		t.Errorf("PostponeCount = %d, want 0 (want-mode goals are never postponed)", goal.PostponeCount)
 	}
 }
 

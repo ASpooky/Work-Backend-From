@@ -116,6 +116,26 @@ func (r *DailyTaskRepository) ShiftPendingForward(goalID string, fromDate time.T
 	return err
 }
 
+// FindByDateAndWorkspaceID returns only the tasks scheduled for date whose
+// goal belongs to workspaceID, unlike FindByDate which ignores workspace
+// boundaries entirely.
+func (r *DailyTaskRepository) FindByDateAndWorkspaceID(date time.Time, workspaceID string) ([]*entity.DailyTask, error) {
+	rows, err := r.db.Query(
+		`SELECT dt.id, dt.goal_id, dt.date, dt.content, dt.done, dt.created_at
+		 FROM daily_tasks dt
+		 JOIN goals g ON g.id = dt.goal_id
+		 WHERE dt.date = ? AND g.workspace_id = ?
+		 ORDER BY dt.created_at`,
+		date.Format(dateLayout), workspaceID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanDailyTasks(rows)
+}
+
 func (r *DailyTaskRepository) FindByDate(date time.Time) ([]*entity.DailyTask, error) {
 	rows, err := r.db.Query(
 		`SELECT id, goal_id, date, content, done, created_at FROM daily_tasks WHERE date = ? ORDER BY created_at`,
@@ -126,6 +146,10 @@ func (r *DailyTaskRepository) FindByDate(date time.Time) ([]*entity.DailyTask, e
 	}
 	defer rows.Close()
 
+	return scanDailyTasks(rows)
+}
+
+func scanDailyTasks(rows *sql.Rows) ([]*entity.DailyTask, error) {
 	tasks := []*entity.DailyTask{}
 	for rows.Next() {
 		var id, goalID, dateStr, content, createdAt string

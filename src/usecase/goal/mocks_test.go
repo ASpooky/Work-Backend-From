@@ -25,6 +25,7 @@ func (s stubClock) Now() time.Time {
 type mockRepository struct {
 	saved             *entity.Goal
 	findByWorkspaceID []*entity.Goal
+	findAll           []*entity.Goal
 }
 
 func (m *mockRepository) Save(goal *entity.Goal) error {
@@ -34,4 +35,8 @@ func (m *mockRepository) Save(goal *entity.Goal) error {
 
 func (m *mockRepository) FindByWorkspaceID(workspaceID string) ([]*entity.Goal, error) {
 	return m.findByWorkspaceID, nil
+}
+
+func (m *mockRepository) FindAll() ([]*entity.Goal, error) {
+	return m.findAll, nil
 }
