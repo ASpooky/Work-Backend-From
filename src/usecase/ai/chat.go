@@ -21,6 +21,10 @@ type ChatCompleter interface {
 
 type ChatInput struct {
 	Messages []entity.ChatMessage
+	// GoalID is ignored by ChatUsecase (the new-goal-creation coach); it
+	// only matters to GoalReviewChatUsecase, which shares this same input
+	// shape so both can be injected into SendMessageUsecase as a Chatter.
+	GoalID string
 }
 
 type ChatUsecase struct {

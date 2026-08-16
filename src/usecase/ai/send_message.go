@@ -23,8 +23,18 @@ type MessageStore interface {
 	FindByConversationID(conversationID string) ([]*entity.ConversationMessage, error)
 }
 
+// Chatter is satisfied by both ChatUsecase (general new-goal coaching) and
+// GoalReviewChatUsecase (reviewing one existing goal) — which persona a
+// SendMessageUsecase instance uses is fixed at construction, letting the
+// same conversation-lifecycle logic (create-or-continue, persist, touch)
+// serve both flows without duplicating it.
+type Chatter interface {
+	Execute(ctx context.Context, input ChatInput) (string, error)
+}
+
 type SendMessageInput struct {
 	WorkspaceID    string
+	GoalID         string // empty for a general chat; set for a goal-review chat
 	ConversationID string // empty starts a new conversation
 	Content        string
 }
@@ -42,7 +52,7 @@ type SendMessageUsecase struct {
 	conversations ConversationCreator
 	toucher       ConversationToucher
 	messages      MessageStore
-	chat          *ChatUsecase
+	chat          Chatter
 	idGen         usecase.IDGenerator
 	clock         usecase.Clock
 }
@@ -51,7 +61,7 @@ func NewSendMessageUsecase(
 	conversations ConversationCreator,
 	toucher ConversationToucher,
 	messages MessageStore,
-	chat *ChatUsecase,
+	chat Chatter,
 	idGen usecase.IDGenerator,
 	clock usecase.Clock,
 ) *SendMessageUsecase {
@@ -71,7 +81,7 @@ func (u *SendMessageUsecase) Execute(ctx context.Context, input SendMessageInput
 
 	if conversationID == "" {
 		conversationID = u.idGen.NewID()
-		conv := entity.NewConversation(conversationID, input.WorkspaceID, deriveTitle(input.Content), u.clock.Now())
+		conv := entity.NewConversation(conversationID, input.WorkspaceID, input.GoalID, deriveTitle(input.Content), u.clock.Now())
 		if err := u.conversations.Save(conv); err != nil {
 			return SendMessageOutput{}, err
 		}
@@ -94,7 +104,7 @@ func (u *SendMessageUsecase) Execute(ctx context.Context, input SendMessageInput
 	}
 	chatMessages = append(chatMessages, entity.ChatMessage{Role: entity.ChatRoleUser, Content: input.Content})
 
-	reply, err := u.chat.Execute(ctx, ChatInput{Messages: chatMessages})
+	reply, err := u.chat.Execute(ctx, ChatInput{Messages: chatMessages, GoalID: input.GoalID})
 	if err != nil {
 		return SendMessageOutput{}, err
 	}

@@ -47,7 +47,10 @@ func migrate(db *sql.DB) error {
 	// a database created before a column existed needs an explicit ALTER
 	// TABLE, applied only if the column is actually missing (ALTER TABLE
 	// ADD COLUMN isn't safe to re-run unconditionally).
-	return addColumnIfMissing(db, "goals", "postpone_count", "INTEGER NOT NULL DEFAULT 0")
+	if err := addColumnIfMissing(db, "goals", "postpone_count", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
+	return addColumnIfMissing(db, "conversations", "goal_id", "TEXT NOT NULL DEFAULT ''")
 }
 
 func addColumnIfMissing(db *sql.DB, table, column, definition string) error {

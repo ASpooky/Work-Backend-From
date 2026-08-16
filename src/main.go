@@ -95,14 +95,24 @@ func main() {
 		getConversation := ai.NewGetConversationUsecase(conversationMessageRepo)
 		planGoal := ai.NewPlanGoalUsecase(geminiClient, conversationMessageRepo, clk)
 		summarizeGoal := ai.NewSummarizeGoalUsecase(goalRepo, dailyTaskRepo, geminiClient, clk)
+		goalReviewChat := ai.NewGoalReviewChatUsecase(geminiClient, goalRepo, dailyTaskRepo, clk)
+		sendGoalReviewMessage := ai.NewSendMessageUsecase(conversationRepo, conversationRepo, conversationMessageRepo, goalReviewChat, ids, clk)
+		listGoalConversations := ai.NewListGoalConversationsUsecase(conversationRepo)
+		reviseGoal := ai.NewReviseGoalUsecase(geminiClient, goalRepo, conversationMessageRepo, clk)
 
-		aiHandler := httpapi.NewAIHandler(sendMessage, listConversations, getConversation, planGoal, summarizeGoal)
+		aiHandler := httpapi.NewAIHandler(
+			sendMessage, listConversations, getConversation, planGoal, summarizeGoal,
+			sendGoalReviewMessage, listGoalConversations, reviseGoal,
+		)
 		mux.HandleFunc("GET /ai/status", aiHandler.Status)
 		mux.HandleFunc("POST /ai/chat", aiHandler.SendMessage)
 		mux.HandleFunc("GET /ai/conversations", aiHandler.ListConversations)
 		mux.HandleFunc("GET /ai/conversations/{id}/messages", aiHandler.GetConversation)
 		mux.HandleFunc("POST /ai/plan", aiHandler.Plan)
 		mux.HandleFunc("POST /ai/goals/{id}/summary", aiHandler.SummarizeGoal)
+		mux.HandleFunc("POST /ai/goals/{id}/chat", aiHandler.GoalChat)
+		mux.HandleFunc("GET /ai/goals/{id}/conversations", aiHandler.ListGoalConversations)
+		mux.HandleFunc("POST /ai/goals/{id}/revise", aiHandler.ReviseGoal)
 		log.Printf("AI features enabled (model=%s)", model)
 	} else {
 		log.Println("GEMINI_API_KEY not set; AI features disabled")

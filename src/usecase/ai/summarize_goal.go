@@ -60,17 +60,53 @@ func (u *SummarizeGoalUsecase) Execute(ctx context.Context, input GoalSummaryInp
 	if err != nil {
 		return GoalSummaryOutput{}, err
 	}
+	if goal == nil {
+		return GoalSummaryOutput{}, fmt.Errorf("goal not found: %s", input.GoalID)
+	}
 
 	now := u.clock.Now()
-	nowDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	nowDate := truncateToDate(now)
 
-	tasks, err := u.tasks.FindByGoalIDAndDateRange(goal.ID, goal.CreatedAt, goal.EndDate)
+	stats, err := computeGoalStats(u.tasks, goal, now)
 	if err != nil {
 		return GoalSummaryOutput{}, err
 	}
 
+	prompt := fmt.Sprintf(
+		`今日の日付: %s
+目標: %s
+達成条件: %s
+モード: %s
+期限まで残り: %d日
+これまでの達成率: %d%%(%d件中%d件完了)
+先延ばし回数: %d回`,
+		nowDate.Format(planDateLayout), goal.Title, goal.AchievementCondition, goal.Mode,
+		stats.DaysRemaining, int(stats.AchievementRate*100), stats.ScheduledCount, stats.DoneCount, stats.PostponeCount,
+	)
+
+	summary, err := u.ai.Chat(ctx, goalSummarySystemPrompt, []entity.ChatMessage{
+		{Role: entity.ChatRoleUser, Content: prompt},
+	})
+	if err != nil {
+		return GoalSummaryOutput{}, err
+	}
+
+	return GoalSummaryOutput{Stats: stats, Summary: summary}, nil
+}
+
+// computeGoalStats duplicates usecase.GetGoalStatsUsecase's math (see that
+// type's doc comment for why usecase/ai doesn't just depend on it), shared
+// within this package by SummarizeGoalUsecase and GoalReviewChatUsecase.
+func computeGoalStats(tasks TaskRangeReader, goal *entity.Goal, now time.Time) (GoalStats, error) {
+	nowDate := truncateToDate(now)
+
+	found, err := tasks.FindByGoalIDAndDateRange(goal.ID, goal.CreatedAt, goal.EndDate)
+	if err != nil {
+		return GoalStats{}, err
+	}
+
 	scheduled, done := 0, 0
-	for _, t := range tasks {
+	for _, t := range found {
 		if t.Date.After(nowDate) {
 			continue
 		}
@@ -85,34 +121,15 @@ func (u *SummarizeGoalUsecase) Execute(ctx context.Context, input GoalSummaryInp
 		rate = float64(done) / float64(scheduled)
 	}
 
-	daysRemaining := int(goal.EndDate.Sub(nowDate).Hours() / 24)
-
-	stats := GoalStats{
+	return GoalStats{
 		ScheduledCount:  scheduled,
 		DoneCount:       done,
 		AchievementRate: rate,
 		PostponeCount:   goal.PostponeCount,
-		DaysRemaining:   daysRemaining,
-	}
+		DaysRemaining:   int(goal.EndDate.Sub(nowDate).Hours() / 24),
+	}, nil
+}
 
-	prompt := fmt.Sprintf(
-		`今日の日付: %s
-目標: %s
-達成条件: %s
-モード: %s
-期限まで残り: %d日
-これまでの達成率: %d%%(%d件中%d件完了)
-先延ばし回数: %d回`,
-		nowDate.Format(planDateLayout), goal.Title, goal.AchievementCondition, goal.Mode,
-		daysRemaining, int(rate*100), scheduled, done, goal.PostponeCount,
-	)
-
-	summary, err := u.ai.Chat(ctx, goalSummarySystemPrompt, []entity.ChatMessage{
-		{Role: entity.ChatRoleUser, Content: prompt},
-	})
-	if err != nil {
-		return GoalSummaryOutput{}, err
-	}
-
-	return GoalSummaryOutput{Stats: stats, Summary: summary}, nil
+func truncateToDate(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 }

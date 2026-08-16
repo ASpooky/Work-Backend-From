@@ -9,11 +9,14 @@ import (
 )
 
 type AIHandler struct {
-	sendMessage       *ai.SendMessageUsecase
-	listConversations *ai.ListConversationsUsecase
-	getConversation   *ai.GetConversationUsecase
-	plan              *ai.PlanGoalUsecase
-	summarizeGoal     *ai.SummarizeGoalUsecase
+	sendMessage           *ai.SendMessageUsecase
+	listConversations     *ai.ListConversationsUsecase
+	getConversation       *ai.GetConversationUsecase
+	plan                  *ai.PlanGoalUsecase
+	summarizeGoal         *ai.SummarizeGoalUsecase
+	sendGoalReviewMessage *ai.SendMessageUsecase
+	listGoalConversations *ai.ListGoalConversationsUsecase
+	reviseGoal            *ai.ReviseGoalUsecase
 }
 
 func NewAIHandler(
@@ -22,13 +25,19 @@ func NewAIHandler(
 	getConversation *ai.GetConversationUsecase,
 	plan *ai.PlanGoalUsecase,
 	summarizeGoal *ai.SummarizeGoalUsecase,
+	sendGoalReviewMessage *ai.SendMessageUsecase,
+	listGoalConversations *ai.ListGoalConversationsUsecase,
+	reviseGoal *ai.ReviseGoalUsecase,
 ) *AIHandler {
 	return &AIHandler{
-		sendMessage:       sendMessage,
-		listConversations: listConversations,
-		getConversation:   getConversation,
-		plan:              plan,
-		summarizeGoal:     summarizeGoal,
+		sendMessage:           sendMessage,
+		listConversations:     listConversations,
+		getConversation:       getConversation,
+		plan:                  plan,
+		summarizeGoal:         summarizeGoal,
+		sendGoalReviewMessage: sendGoalReviewMessage,
+		listGoalConversations: listGoalConversations,
+		reviseGoal:            reviseGoal,
 	}
 }
 
@@ -170,4 +179,73 @@ func (h *AIHandler) SummarizeGoal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"summary": got.Summary})
+}
+
+func (h *AIHandler) GoalChat(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	var req sendMessageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	got, err := h.sendGoalReviewMessage.Execute(r.Context(), ai.SendMessageInput{
+		WorkspaceID:    req.WorkspaceID,
+		GoalID:         id,
+		ConversationID: req.ConversationID,
+		Content:        req.Content,
+	})
+	if err != nil {
+		log.Printf("AI goal review chat failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"conversation_id": got.ConversationID,
+		"reply":           got.Reply,
+	})
+}
+
+func (h *AIHandler) ListGoalConversations(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	got, err := h.listGoalConversations.Execute(id)
+	if err != nil {
+		log.Printf("AI list goal conversations failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, got)
+}
+
+type reviseGoalRequest struct {
+	ConversationID string `json:"conversation_id"`
+}
+
+func (h *AIHandler) ReviseGoal(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	var req reviseGoalRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	revised, err := h.reviseGoal.Execute(r.Context(), ai.ReviseGoalInput{GoalID: id, ConversationID: req.ConversationID})
+	if err != nil {
+		log.Printf("AI goal revision failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, plannedGoalResponse{
+		Title:                revised.Title,
+		Detail:               revised.Detail,
+		AchievementCondition: revised.AchievementCondition,
+		EndDate:              revised.EndDate.Format(dateLayout),
+		Mode:                 string(revised.Mode),
+	})
 }

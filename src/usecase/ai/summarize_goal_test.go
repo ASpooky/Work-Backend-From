@@ -64,3 +64,15 @@ func TestSummarizeGoalUsecase_Execute(t *testing.T) {
 		t.Errorf("prompt sent to AI = %q, want it to mention postpone count", completer.capturedMessages[0].Content)
 	}
 }
+
+func TestSummarizeGoalUsecase_Execute_GoalNotFound(t *testing.T) {
+	goals := stubSingleGoalReader{goal: nil}
+	tasks := stubTaskRangeReader{}
+	completer := &stubChatCompleter{reply: "unused"}
+
+	uc := NewSummarizeGoalUsecase(goals, tasks, completer, stubClock{now: time.Now()})
+	_, err := uc.Execute(context.Background(), GoalSummaryInput{GoalID: "missing"})
+	if err == nil {
+		t.Fatal("Execute() with a missing goal returned no error, want one instead of panicking downstream")
+	}
+}

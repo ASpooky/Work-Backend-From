@@ -71,8 +71,8 @@ func TestWorkspaceRepository_Delete_CascadesToGoalsTasksAndConversations(t *test
 	}
 
 	convRepo := NewConversationRepository(db)
-	doomedConv := entity.NewConversation("conv-doomed", doomed.ID, "消える会話", time.Now())
-	survivorConv := entity.NewConversation("conv-survivor", survivor.ID, "残る会話", time.Now())
+	doomedConv := entity.NewConversation("conv-doomed", doomed.ID, "", "消える会話", time.Now())
+	survivorConv := entity.NewConversation("conv-survivor", survivor.ID, "", "残る会話", time.Now())
 	for _, c := range []*entity.Conversation{doomedConv, survivorConv} {
 		if err := convRepo.Save(c); err != nil {
 			t.Fatalf("Save() returned unexpected error: %v", err)

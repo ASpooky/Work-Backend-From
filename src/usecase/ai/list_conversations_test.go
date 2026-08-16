@@ -17,11 +17,34 @@ func (s stubConversationLister) FindByWorkspaceID(workspaceID string) ([]*entity
 
 func TestListConversationsUsecase_Execute(t *testing.T) {
 	want := []*entity.Conversation{
-		entity.NewConversation("conv-001", "workspace-001", "5km走れるようになりたい", time.Now()),
+		entity.NewConversation("conv-001", "workspace-001", "", "5km走れるようになりたい", time.Now()),
 	}
 	uc := NewListConversationsUsecase(stubConversationLister{conversations: want})
 
 	got, err := uc.Execute("workspace-001")
+	if err != nil {
+		t.Fatalf("Execute() returned unexpected error: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != "conv-001" {
+		t.Errorf("Execute() = %+v, want %+v", got, want)
+	}
+}
+
+type stubGoalConversationLister struct {
+	conversations []*entity.Conversation
+}
+
+func (s stubGoalConversationLister) FindByGoalID(goalID string) ([]*entity.Conversation, error) {
+	return s.conversations, nil
+}
+
+func TestListGoalConversationsUsecase_Execute(t *testing.T) {
+	want := []*entity.Conversation{
+		entity.NewConversation("conv-001", "workspace-001", "goal-001", "目標の見直し", time.Now()),
+	}
+	uc := NewListGoalConversationsUsecase(stubGoalConversationLister{conversations: want})
+
+	got, err := uc.Execute("goal-001")
 	if err != nil {
 		t.Fatalf("Execute() returned unexpected error: %v", err)
 	}

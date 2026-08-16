@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS daily_tasks (
 CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    goal_id TEXT NOT NULL DEFAULT '',
     title TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL

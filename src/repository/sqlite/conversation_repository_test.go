@@ -23,8 +23,8 @@ func TestConversationRepository_SaveAndFindByWorkspaceID(t *testing.T) {
 	}
 
 	repo := NewConversationRepository(db)
-	older := entity.NewConversation("conv-001", workspace.ID, "5km走れるようになりたい", time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC))
-	newer := entity.NewConversation("conv-002", workspace.ID, "マラソン完走したい", time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC))
+	older := entity.NewConversation("conv-001", workspace.ID, "", "5km走れるようになりたい", time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC))
+	newer := entity.NewConversation("conv-002", workspace.ID, "", "マラソン完走したい", time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC))
 	for _, c := range []*entity.Conversation{older, newer} {
 		if err := repo.Save(c); err != nil {
 			t.Fatalf("Save() returned unexpected error: %v", err)
@@ -48,6 +48,46 @@ func TestConversationRepository_SaveAndFindByWorkspaceID(t *testing.T) {
 	}
 }
 
+func TestConversationRepository_GoalScopedConversations(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	workspace := entity.NewWorkSpace("workspace-001", DefaultUserID, "private", time.Now())
+	if err := workspaceRepo.Save(workspace); err != nil {
+		t.Fatalf("workspaceRepo.Save() returned unexpected error: %v", err)
+	}
+
+	repo := NewConversationRepository(db)
+	general := entity.NewConversation("conv-general", workspace.ID, "", "5km走れるようになりたい", time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC))
+	review := entity.NewConversation("conv-review", workspace.ID, "goal-001", "目標の見直し", time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC))
+	for _, c := range []*entity.Conversation{general, review} {
+		if err := repo.Save(c); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	byWorkspace, err := repo.FindByWorkspaceID(workspace.ID)
+	if err != nil {
+		t.Fatalf("FindByWorkspaceID() returned unexpected error: %v", err)
+	}
+	if len(byWorkspace) != 1 || byWorkspace[0].ID != general.ID {
+		t.Errorf("FindByWorkspaceID() = %+v, want only the goal-unscoped conversation", byWorkspace)
+	}
+
+	byGoal, err := repo.FindByGoalID("goal-001")
+	if err != nil {
+		t.Fatalf("FindByGoalID() returned unexpected error: %v", err)
+	}
+	if len(byGoal) != 1 || byGoal[0].ID != review.ID {
+		t.Errorf("FindByGoalID() = %+v, want only the goal-scoped conversation", byGoal)
+	}
+}
+
 func TestConversationRepository_Touch(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
 	db, err := Open(path)
@@ -64,7 +104,7 @@ func TestConversationRepository_Touch(t *testing.T) {
 
 	repo := NewConversationRepository(db)
 	created := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
-	conv := entity.NewConversation("conv-001", workspace.ID, "5km走れるようになりたい", created)
+	conv := entity.NewConversation("conv-001", workspace.ID, "", "5km走れるようになりたい", created)
 	if err := repo.Save(conv); err != nil {
 		t.Fatalf("Save() returned unexpected error: %v", err)
 	}
@@ -101,11 +141,11 @@ func TestConversationMessageRepository_SaveAndFindByConversationID(t *testing.T)
 	}
 
 	convRepo := NewConversationRepository(db)
-	conv := entity.NewConversation("conv-001", workspace.ID, "5km走れるようになりたい", time.Now())
+	conv := entity.NewConversation("conv-001", workspace.ID, "", "5km走れるようになりたい", time.Now())
 	if err := convRepo.Save(conv); err != nil {
 		t.Fatalf("convRepo.Save() returned unexpected error: %v", err)
 	}
-	otherConv := entity.NewConversation("conv-002", workspace.ID, "別の会話", time.Now())
+	otherConv := entity.NewConversation("conv-002", workspace.ID, "", "別の会話", time.Now())
 	if err := convRepo.Save(otherConv); err != nil {
 		t.Fatalf("convRepo.Save() returned unexpected error: %v", err)
 	}
