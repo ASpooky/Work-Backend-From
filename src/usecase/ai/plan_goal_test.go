@@ -94,6 +94,35 @@ func TestPlanGoalUsecase_Execute(t *testing.T) {
 	}
 }
 
+func TestPlanGoalUsecase_Execute_AppendsTrailingUserTurnWhenConversationEndsWithModel(t *testing.T) {
+	gen := &stubPlanGenerator{json: `{
+		"goal": {"title": "x", "detail": "x", "achievement_condition": "x", "end_date": "2026-09-30", "mode": "strict"},
+		"tasks": []
+	}`}
+	uc := NewPlanGoalUsecase(gen, stubClock{now: time.Now()})
+
+	messages := []entity.ChatMessage{
+		{Role: entity.ChatRoleUser, Content: "3ヶ月後のフルマラソンで完走したい"},
+		{Role: entity.ChatRoleModel, Content: "必達ですか、努力目標ですか？"},
+	}
+	if _, err := uc.Execute(context.Background(), PlanGoalInput{Messages: messages}); err != nil {
+		t.Fatalf("Execute() returned unexpected error: %v", err)
+	}
+
+	// The Gemini API rejects a `contents` array whose last turn has role
+	// "model" ("Requests ending with a model turn are not supported.").
+	// Reproduced live: every real "落とし込む" click failed with exactly
+	// that 400 once the conversation's last message was the AI's reply.
+	got := gen.capturedMessages
+	if len(got) == 0 || got[len(got)-1].Role != entity.ChatRoleUser {
+		t.Fatalf("GenerateJSON() was called with messages ending in role %q, want the last message to be role %q",
+			got[len(got)-1].Role, entity.ChatRoleUser)
+	}
+	if len(got) != len(messages)+1 {
+		t.Errorf("GenerateJSON() received %d messages, want %d (original + 1 appended trailing user turn)", len(got), len(messages)+1)
+	}
+}
+
 func TestPlanGoalUsecase_Execute_InvalidDate(t *testing.T) {
 	gen := &stubPlanGenerator{json: `{
 		"goal": {

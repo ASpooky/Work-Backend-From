@@ -19,6 +19,8 @@ const planSystemPromptTemplate = `あなたはユーザーの目標達成を支�
 「3ヶ月後」のような相対的な期限は、今日の日付を基準に計算した実際の日付にしてください。
 過去の日付を出力してはいけません。日付はすべて YYYY-MM-DD 形式で出力してください。`
 
+const planRequestMessage = "これまでの内容をもとに、目標と日々のタスクの提案を出力してください。"
+
 var planSchema = map[string]any{
 	"type": "object",
 	"properties": map[string]any{
@@ -113,7 +115,17 @@ func NewPlanGoalUsecase(ai PlanGenerator, clock usecase.Clock) *PlanGoalUsecase 
 
 func (u *PlanGoalUsecase) Execute(ctx context.Context, input PlanGoalInput) (Plan, error) {
 	prompt := fmt.Sprintf(planSystemPromptTemplate, u.clock.Now().Format(planDateLayout))
-	raw, err := u.ai.GenerateJSON(ctx, prompt, input.Messages, planSchema)
+
+	// The Gemini API rejects a `contents` array whose last turn has role
+	// "model" ("Requests ending with a model turn are not supported."),
+	// which the conversation always does at this point (it just replied).
+	// Append an explicit trailing user turn requesting the plan.
+	messages := append(append([]entity.ChatMessage{}, input.Messages...), entity.ChatMessage{
+		Role:    entity.ChatRoleUser,
+		Content: planRequestMessage,
+	})
+
+	raw, err := u.ai.GenerateJSON(ctx, prompt, messages, planSchema)
 	if err != nil {
 		return Plan{}, err
 	}
