@@ -46,7 +46,7 @@ function SettingsPage() {
         {aiEnabled === false && (
           <p className="settings-note">
             バックエンドに <code>GEMINI_API_KEY</code> 環境変数が設定されていないため無効です。サーバーを起動する前に
-            設定してください(<code>GEMINI_MODEL</code> でモデルも変更できます、未設定時は gemini-3.7-flash)。
+            設定してください（<code>GEMINI_MODEL</code> でモデルも変更できます、未設定時は gemini-3.7-flash）。
             APIキーはブラウザ側には一切保存されません。
           </p>
         )}

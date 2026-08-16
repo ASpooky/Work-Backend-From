@@ -170,7 +170,7 @@ function AIPlanPage({ workspace, isAllWorkspaces, onCreated }: Props) {
       <section>
         <h2>AIと目標を作る</h2>
         <p className="hint">
-          この機能はバックエンドに GEMINI_API_KEY 環境変数が設定されていないため、現在利用できません。
+          AI機能はサーバー側の設定が済んでいないため、現在利用できません。
         </p>
       </section>
     )
@@ -199,7 +199,7 @@ function AIPlanPage({ workspace, isAllWorkspaces, onCreated }: Props) {
                 </button>
               </li>
             ))}
-            {conversations.length === 0 && <li className="ai-conversation-empty">まだ会話がありません</li>}
+            {conversations.length === 0 && <li className="ai-conversation-empty">まだ会話がありません。</li>}
           </ul>
         </aside>
 
@@ -240,7 +240,7 @@ function AIPlanPage({ workspace, isAllWorkspaces, onCreated }: Props) {
 
           {plan && editedGoal && (
             <div className="ai-plan-review">
-              <h3>提案されたプラン(確認・編集してから登録してください)</h3>
+              <h3>提案されたプラン（確認・編集してから登録してください）</h3>
 
               <div className="ai-plan-goal-fields">
                 <label>

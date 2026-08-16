@@ -22,7 +22,7 @@ function Sidebar({
 }: Props) {
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand">Goal Tracker</div>
+      <div className="sidebar-brand">目標トラッカー</div>
 
       <div className="sidebar-workspace">
         <WorkspaceSwitcher

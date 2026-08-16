@@ -43,7 +43,7 @@ function WeekPathView({ calendar, days, workspaceNameById }: Props) {
       </div>
 
       {calendar.length === 0 ? (
-        <p className="week-path-empty">まだ目標がありません</p>
+        <p className="week-path-empty">まだ目標がありません。</p>
       ) : (
         <>
           <div className="week-path-table-wrap">

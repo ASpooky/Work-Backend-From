@@ -308,7 +308,7 @@ function GoalDetailPage({ onUpdated }: Props) {
               <div className="goal-review-log">
                 {reviewMessages.length === 0 && (
                   <p className="hint">
-                    見直したい内容を話しかけてください(例: 「期限を1ヶ月延ばしたい」)。AIが現在の目標の内容と進捗を踏まえて相談に乗ります。
+                    見直したい内容を話しかけてください（例: 「期限を1ヶ月延ばしたい」）。AIが現在の目標の内容と進捗を踏まえて相談に乗ります。
                   </p>
                 )}
                 {reviewMessages.map((m) => (
@@ -345,7 +345,7 @@ function GoalDetailPage({ onUpdated }: Props) {
 
           {revision && (
             <div className="ai-plan-review">
-              <h3>見直し案(確認・編集してから保存してください)</h3>
+              <h3>見直し案（確認・編集してから保存してください）</h3>
               <div className="ai-plan-goal-fields">
                 <label>
                   タイトル

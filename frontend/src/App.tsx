@@ -111,7 +111,7 @@ function App() {
       )}
 
       <main className={`app${location.pathname === '/ai-plan' ? ' app-wide' : ''}`}>
-        <h1>Goal Tracker</h1>
+        <h1>目標トラッカー</h1>
         {error && <p className="error">{error}</p>}
         {!workspace && <p>Loading workspace...</p>}
 
