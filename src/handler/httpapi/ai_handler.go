@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/ASpooky/Work-Backend-From/src/entity"
@@ -47,6 +48,7 @@ func (h *AIHandler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	reply, err := h.chat.Execute(r.Context(), ai.ChatInput{Messages: toChatMessages(req.Messages)})
 	if err != nil {
+		log.Printf("AI chat failed: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -85,6 +87,7 @@ func (h *AIHandler) Plan(w http.ResponseWriter, r *http.Request) {
 
 	plan, err := h.plan.Execute(r.Context(), ai.PlanGoalInput{Messages: toChatMessages(req.Messages)})
 	if err != nil {
+		log.Printf("AI plan generation failed: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

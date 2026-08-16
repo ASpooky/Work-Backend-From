@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,7 +43,8 @@ func TestPlanGoalUsecase_Execute(t *testing.T) {
 			}
 		]
 	}`}
-	uc := NewPlanGoalUsecase(gen)
+	fixedNow := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
+	uc := NewPlanGoalUsecase(gen, stubClock{now: fixedNow})
 
 	messages := []entity.ChatMessage{{Role: entity.ChatRoleUser, Content: "5km走れるようになりたい"}}
 	got, err := uc.Execute(context.Background(), PlanGoalInput{Messages: messages})
@@ -87,6 +89,9 @@ func TestPlanGoalUsecase_Execute(t *testing.T) {
 	if gen.capturedSystem == "" {
 		t.Errorf("GenerateJSON() was called with an empty system instruction")
 	}
+	if !strings.Contains(gen.capturedSystem, "2026-08-16") {
+		t.Errorf("GenerateJSON() system instruction = %q, want it to mention today's date so relative deadlines resolve correctly", gen.capturedSystem)
+	}
 }
 
 func TestPlanGoalUsecase_Execute_InvalidDate(t *testing.T) {
@@ -97,7 +102,7 @@ func TestPlanGoalUsecase_Execute_InvalidDate(t *testing.T) {
 		},
 		"tasks": []
 	}`}
-	uc := NewPlanGoalUsecase(gen)
+	uc := NewPlanGoalUsecase(gen, stubClock{now: time.Now()})
 
 	_, err := uc.Execute(context.Background(), PlanGoalInput{Messages: nil})
 	if err == nil {

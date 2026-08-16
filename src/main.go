@@ -78,7 +78,7 @@ func main() {
 			model = defaultGeminiModel
 		}
 		geminiClient := infraai.NewGeminiClient(geminiAPIKey, model)
-		aiHandler := httpapi.NewAIHandler(ai.NewChatUsecase(geminiClient), ai.NewPlanGoalUsecase(geminiClient))
+		aiHandler := httpapi.NewAIHandler(ai.NewChatUsecase(geminiClient, clk), ai.NewPlanGoalUsecase(geminiClient, clk))
 		mux.HandleFunc("GET /ai/status", aiHandler.Status)
 		mux.HandleFunc("POST /ai/chat", aiHandler.Chat)
 		mux.HandleFunc("POST /ai/plan", aiHandler.Plan)

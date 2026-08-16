@@ -7,15 +7,17 @@ import (
 	"time"
 
 	"github.com/ASpooky/Work-Backend-From/src/entity"
+	"github.com/ASpooky/Work-Backend-From/src/usecase"
 	"github.com/ASpooky/Work-Backend-From/src/usecase/dailytask"
 )
 
 const planDateLayout = "2006-01-02"
 
-const planSystemPrompt = `あなたはユーザーの目標達成を支援するプランナーです。これまでの会話の内容をもとに、
-目標(goal)と、それを確実に達成するための日々のタスク(tasks)を提案してください。
-タスクは無理のない頻度にし、goalの達成条件と矛盾しないようにしてください。
-日付はすべて YYYY-MM-DD 形式で出力してください。`
+const planSystemPromptTemplate = `あなたはユーザーの目標達成を支援するプランナーです。今日の日付は %s です。
+これまでの会話の内容をもとに、目標(goal)と、それを確実に達成するための日々のタスク(tasks)を
+提案してください。タスクは無理のない頻度にし、goalの達成条件と矛盾しないようにしてください。
+「3ヶ月後」のような相対的な期限は、今日の日付を基準に計算した実際の日付にしてください。
+過去の日付を出力してはいけません。日付はすべて YYYY-MM-DD 形式で出力してください。`
 
 var planSchema = map[string]any{
 	"type": "object",
@@ -101,15 +103,17 @@ type planWire struct {
 }
 
 type PlanGoalUsecase struct {
-	ai PlanGenerator
+	ai    PlanGenerator
+	clock usecase.Clock
 }
 
-func NewPlanGoalUsecase(ai PlanGenerator) *PlanGoalUsecase {
-	return &PlanGoalUsecase{ai: ai}
+func NewPlanGoalUsecase(ai PlanGenerator, clock usecase.Clock) *PlanGoalUsecase {
+	return &PlanGoalUsecase{ai: ai, clock: clock}
 }
 
 func (u *PlanGoalUsecase) Execute(ctx context.Context, input PlanGoalInput) (Plan, error) {
-	raw, err := u.ai.GenerateJSON(ctx, planSystemPrompt, input.Messages, planSchema)
+	prompt := fmt.Sprintf(planSystemPromptTemplate, u.clock.Now().Format(planDateLayout))
+	raw, err := u.ai.GenerateJSON(ctx, prompt, input.Messages, planSchema)
 	if err != nil {
 		return Plan{}, err
 	}
