@@ -9,17 +9,19 @@ import (
 )
 
 type DailyTaskHandler struct {
-	create     *dailytask.CreateDailyTaskUsecase
-	list       *dailytask.ListDailyTasksUsecase
-	updateDone *dailytask.UpdateDailyTaskDoneUsecase
+	create          *dailytask.CreateDailyTaskUsecase
+	createRecurring *dailytask.CreateRecurringDailyTasksUsecase
+	list            *dailytask.ListDailyTasksUsecase
+	updateDone      *dailytask.UpdateDailyTaskDoneUsecase
 }
 
 func NewDailyTaskHandler(
 	create *dailytask.CreateDailyTaskUsecase,
+	createRecurring *dailytask.CreateRecurringDailyTasksUsecase,
 	list *dailytask.ListDailyTasksUsecase,
 	updateDone *dailytask.UpdateDailyTaskDoneUsecase,
 ) *DailyTaskHandler {
-	return &DailyTaskHandler{create: create, list: list, updateDone: updateDone}
+	return &DailyTaskHandler{create: create, createRecurring: createRecurring, list: list, updateDone: updateDone}
 }
 
 type updateDailyTaskDoneRequest struct {
@@ -30,6 +32,20 @@ type createDailyTaskRequest struct {
 	GoalID  string `json:"goal_id"`
 	Date    string `json:"date"`
 	Content string `json:"content"`
+}
+
+type recurrenceRuleRequest struct {
+	Type         string `json:"type"`
+	IntervalDays int    `json:"interval_days"`
+	Weekdays     []int  `json:"weekdays"`
+}
+
+type createRecurringDailyTasksRequest struct {
+	GoalID    string                `json:"goal_id"`
+	Content   string                `json:"content"`
+	StartDate string                `json:"start_date"`
+	EndDate   string                `json:"end_date"`
+	Rule      recurrenceRuleRequest `json:"rule"`
 }
 
 func (h *DailyTaskHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -49,6 +65,47 @@ func (h *DailyTaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 		GoalID:  req.GoalID,
 		Date:    date,
 		Content: req.Content,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, got)
+}
+
+func (h *DailyTaskHandler) CreateRecurring(w http.ResponseWriter, r *http.Request) {
+	var req createRecurringDailyTasksRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	startDate, err := time.Parse(dateLayout, req.StartDate)
+	if err != nil {
+		http.Error(w, "invalid start_date, expected YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+	endDate, err := time.Parse(dateLayout, req.EndDate)
+	if err != nil {
+		http.Error(w, "invalid end_date, expected YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+
+	rule := dailytask.RecurrenceRule{
+		Type:         dailytask.RecurrenceType(req.Rule.Type),
+		IntervalDays: req.Rule.IntervalDays,
+	}
+	for _, wd := range req.Rule.Weekdays {
+		rule.Weekdays = append(rule.Weekdays, time.Weekday(wd))
+	}
+
+	got, err := h.createRecurring.Execute(dailytask.CreateRecurringDailyTasksInput{
+		GoalID:    req.GoalID,
+		Content:   req.Content,
+		StartDate: startDate,
+		EndDate:   endDate,
+		Rule:      rule,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

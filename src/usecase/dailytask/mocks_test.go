@@ -43,3 +43,16 @@ func (m *mockRepository) UpdateDone(id string, done bool) error {
 	m.updatedDone = done
 	return nil
 }
+
+type recordingRepository struct {
+	saved []*entity.DailyTask
+}
+
+func (r *recordingRepository) Save(task *entity.DailyTask) error {
+	r.saved = append(r.saved, task)
+	return nil
+}
+
+func (r *recordingRepository) FindByDate(date time.Time) ([]*entity.DailyTask, error) {
+	return nil, nil
+}
