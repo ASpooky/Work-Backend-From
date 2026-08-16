@@ -13,11 +13,12 @@ import (
 const dateLayout = "2006-01-02"
 
 type GoalHandler struct {
-	create *goal.CreateGoalUsecase
-	list   *goal.ListGoalsUsecase
-	get    *usecase.GetGoalStatsUsecase
-	update *goal.UpdateGoalUsecase
-	delete *goal.DeleteGoalUsecase
+	create  *goal.CreateGoalUsecase
+	list    *goal.ListGoalsUsecase
+	get     *usecase.GetGoalStatsUsecase
+	update  *goal.UpdateGoalUsecase
+	delete  *goal.DeleteGoalUsecase
+	reorder *goal.ReorderGoalUsecase
 }
 
 func NewGoalHandler(
@@ -26,8 +27,9 @@ func NewGoalHandler(
 	get *usecase.GetGoalStatsUsecase,
 	update *goal.UpdateGoalUsecase,
 	del *goal.DeleteGoalUsecase,
+	reorder *goal.ReorderGoalUsecase,
 ) *GoalHandler {
-	return &GoalHandler{create: create, list: list, get: get, update: update, delete: del}
+	return &GoalHandler{create: create, list: list, get: get, update: update, delete: del, reorder: reorder}
 }
 
 type createGoalRequest struct {
@@ -159,4 +161,25 @@ func (h *GoalHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+type reorderGoalRequest struct {
+	Priority int `json:"priority"`
+}
+
+func (h *GoalHandler) Reorder(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	var req reorderGoalRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.reorder.Execute(goal.ReorderGoalInput{ID: id, Priority: req.Priority}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "priority": req.Priority})
 }

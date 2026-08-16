@@ -19,11 +19,11 @@ func NewGoalRepository(db *sql.DB) *GoalRepository {
 
 func (r *GoalRepository) Save(goal *entity.Goal) error {
 	_, err := r.db.Exec(
-		`INSERT INTO goals (id, workspace_id, title, detail, achievement_condition, end_date, mode, status, created_at, postpone_count)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO goals (id, workspace_id, title, detail, achievement_condition, end_date, mode, status, created_at, postpone_count, priority)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		goal.ID, goal.WorkspaceID, goal.Title, goal.Detail, goal.AchievementCondition,
 		goal.EndDate.Format(dateLayout), string(goal.Mode), string(goal.Status), goal.CreatedAt.Format(time.RFC3339),
-		goal.PostponeCount,
+		goal.PostponeCount, goal.Priority,
 	)
 	return err
 }
@@ -77,9 +77,17 @@ func (r *GoalRepository) UpdatePostponement(id string, endDate time.Time, postpo
 	return err
 }
 
+// UpdatePriority sets a goal's manual sort position (lower sorts first). A
+// separate narrow method from Update, same reasoning as UpdatePostponement —
+// this is a list-ordering concern, not part of the "目標の見直し" edit flow.
+func (r *GoalRepository) UpdatePriority(id string, priority int) error {
+	_, err := r.db.Exec(`UPDATE goals SET priority = ? WHERE id = ?`, priority, id)
+	return err
+}
+
 func (r *GoalRepository) FindByID(id string) (*entity.Goal, error) {
 	row := r.db.QueryRow(
-		`SELECT id, workspace_id, title, detail, achievement_condition, end_date, mode, status, created_at, postpone_count
+		`SELECT id, workspace_id, title, detail, achievement_condition, end_date, mode, status, created_at, postpone_count, priority
 		 FROM goals WHERE id = ?`,
 		id,
 	)
@@ -95,8 +103,8 @@ func (r *GoalRepository) FindByID(id string) (*entity.Goal, error) {
 // "all" view.
 func (r *GoalRepository) FindAll() ([]*entity.Goal, error) {
 	rows, err := r.db.Query(
-		`SELECT id, workspace_id, title, detail, achievement_condition, end_date, mode, status, created_at, postpone_count
-		 FROM goals ORDER BY created_at`,
+		`SELECT id, workspace_id, title, detail, achievement_condition, end_date, mode, status, created_at, postpone_count, priority
+		 FROM goals ORDER BY priority ASC, created_at ASC`,
 	)
 	if err != nil {
 		return nil, err
@@ -108,8 +116,8 @@ func (r *GoalRepository) FindAll() ([]*entity.Goal, error) {
 
 func (r *GoalRepository) FindByWorkspaceID(workspaceID string) ([]*entity.Goal, error) {
 	rows, err := r.db.Query(
-		`SELECT id, workspace_id, title, detail, achievement_condition, end_date, mode, status, created_at, postpone_count
-		 FROM goals WHERE workspace_id = ? ORDER BY created_at`,
+		`SELECT id, workspace_id, title, detail, achievement_condition, end_date, mode, status, created_at, postpone_count, priority
+		 FROM goals WHERE workspace_id = ? ORDER BY priority ASC, created_at ASC`,
 		workspaceID,
 	)
 	if err != nil {
@@ -126,8 +134,8 @@ type rowScanner interface {
 
 func scanGoal(row rowScanner) (*entity.Goal, error) {
 	var id, wsID, title, detail, achievementCondition, endDate, mode, status, createdAt string
-	var postponeCount int
-	if err := row.Scan(&id, &wsID, &title, &detail, &achievementCondition, &endDate, &mode, &status, &createdAt, &postponeCount); err != nil {
+	var postponeCount, priority int
+	if err := row.Scan(&id, &wsID, &title, &detail, &achievementCondition, &endDate, &mode, &status, &createdAt, &postponeCount, &priority); err != nil {
 		return nil, err
 	}
 
@@ -143,6 +151,7 @@ func scanGoal(row rowScanner) (*entity.Goal, error) {
 	goal := entity.NewGoal(id, wsID, title, detail, achievementCondition, parsedEndDate, entity.GoalMode(mode), parsedCreatedAt)
 	goal.Status = entity.GoalStatus(status)
 	goal.PostponeCount = postponeCount
+	goal.Priority = priority
 	return goal, nil
 }
 

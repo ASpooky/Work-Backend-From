@@ -17,6 +17,7 @@ export type Goal = {
   mode: 'strict' | 'want'
   status: 'active' | 'achieved' | 'abandoned'
   created_at: string
+  priority: number
 }
 
 export type DailyTask = {
@@ -135,6 +136,11 @@ export const api = {
     },
   ) => request<{ id: string }>(`/goals/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteGoal: (id: string) => request<void>(`/goals/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  reorderGoal: (id: string, priority: number) =>
+    request<{ id: string; priority: number }>(`/goals/${encodeURIComponent(id)}/priority`, {
+      method: 'PATCH',
+      body: JSON.stringify({ priority }),
+    }),
 
   listDailyTasks: (date: string) =>
     request<DailyTask[]>(`/daily-tasks?date=${encodeURIComponent(date)}`),

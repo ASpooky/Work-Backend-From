@@ -34,6 +34,29 @@ function GoalsListPage({ workspace, workspaces, refreshKey, onDeleted }: Props) 
     }
   }
 
+  // Swaps the two goals' priorities to their new positions' indexes. This
+  // self-heals ordering over time even for goals that still share the
+  // migration default priority of 0 (only ties on created_at until touched).
+  async function handleMove(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= goals.length) return
+
+    const current = goals[index]
+    const target = goals[targetIndex]
+
+    try {
+      await Promise.all([api.reorderGoal(current.id, targetIndex), api.reorderGoal(target.id, index)])
+      setGoals((prev) => {
+        const next = [...prev]
+        next[index] = { ...target, priority: index }
+        next[targetIndex] = { ...current, priority: targetIndex }
+        return next
+      })
+    } catch (err) {
+      setError(toUserMessage(err))
+    }
+  }
+
   return (
     <section>
       <h2>目標</h2>
@@ -43,10 +66,30 @@ function GoalsListPage({ workspace, workspaces, refreshKey, onDeleted }: Props) 
       {goals.length === 0 && <p className="hint">まだ目標がありません。「登録」から作成してください。</p>}
 
       <ul className="goals-list">
-        {goals.map((goal) => {
+        {goals.map((goal, index) => {
           const left = daysUntil(goal.end_date)
           return (
             <li key={goal.id} className="goals-list-item">
+              {!isAllWorkspaces && (
+                <div className="goals-list-reorder">
+                  <button
+                    type="button"
+                    onClick={() => handleMove(index, -1)}
+                    disabled={index === 0}
+                    aria-label={`${goal.title}を上に移動`}
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMove(index, 1)}
+                    disabled={index === goals.length - 1}
+                    aria-label={`${goal.title}を下に移動`}
+                  >
+                    ▼
+                  </button>
+                </div>
+              )}
               <Link to={`/goals/${goal.id}`} className="goals-list-card">
                 <div className="goals-list-card-header">
                   <span className="goals-list-card-title">{goal.title}</span>

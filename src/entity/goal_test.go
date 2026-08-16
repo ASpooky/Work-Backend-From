@@ -23,6 +23,7 @@ func TestNewGoal(t *testing.T) {
 		Status:               StatusActive,
 		CreatedAt:            createdAt,
 		PostponeCount:        0,
+		Priority:             0,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("NewGoal() = %+v, want %+v", got, want)

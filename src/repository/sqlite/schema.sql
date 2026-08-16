@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS goals (
     mode TEXT NOT NULL,
     status TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    postpone_count INTEGER NOT NULL DEFAULT 0
+    postpone_count INTEGER NOT NULL DEFAULT 0,
+    priority INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS daily_tasks (

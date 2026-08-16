@@ -192,6 +192,56 @@ func TestGoalRepository_Update(t *testing.T) {
 	}
 }
 
+func TestGoalRepository_UpdatePriority_ReordersFindByWorkspaceID(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	workspace := entity.NewWorkSpace("workspace-001", DefaultUserID, "private", time.Now())
+	if err := workspaceRepo.Save(workspace); err != nil {
+		t.Fatalf("workspaceRepo.Save() returned unexpected error: %v", err)
+	}
+
+	repo := NewGoalRepository(db)
+	base := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	first := entity.NewGoal("goal-first", workspace.ID, "先に作った方", "detail", "cond", time.Now(), entity.ModeStrict, base)
+	second := entity.NewGoal("goal-second", workspace.ID, "後で作った方", "detail", "cond", time.Now(), entity.ModeStrict, base.Add(time.Hour))
+	for _, g := range []*entity.Goal{first, second} {
+		if err := repo.Save(g); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	// Both default to priority 0, so created_at breaks the tie: first, second.
+	got, err := repo.FindByWorkspaceID(workspace.ID)
+	if err != nil {
+		t.Fatalf("FindByWorkspaceID() returned unexpected error: %v", err)
+	}
+	if len(got) != 2 || got[0].ID != first.ID || got[1].ID != second.ID {
+		t.Fatalf("FindByWorkspaceID() before reorder = %+v, want [first, second] (created_at order)", got)
+	}
+
+	// Move "second" above "first" by giving it a lower priority.
+	if err := repo.UpdatePriority(second.ID, -1); err != nil {
+		t.Fatalf("UpdatePriority() returned unexpected error: %v", err)
+	}
+
+	reordered, err := repo.FindByWorkspaceID(workspace.ID)
+	if err != nil {
+		t.Fatalf("FindByWorkspaceID() returned unexpected error: %v", err)
+	}
+	if len(reordered) != 2 || reordered[0].ID != second.ID || reordered[1].ID != first.ID {
+		t.Fatalf("FindByWorkspaceID() after UpdatePriority() = %+v, want [second, first]", reordered)
+	}
+	if reordered[0].Priority != -1 {
+		t.Errorf("reordered[0].Priority = %d, want -1", reordered[0].Priority)
+	}
+}
+
 func TestGoalRepository_FindAll(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
 	db, err := Open(path)

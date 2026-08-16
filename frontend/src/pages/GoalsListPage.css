@@ -36,6 +36,41 @@
   border-color: var(--danger);
 }
 
+.goals-list-reorder {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.goals-list-reorder button {
+  flex: 1 1 0;
+  padding: 0 0.5rem;
+  background: transparent;
+  border: 0.5px solid var(--border);
+  color: var(--text);
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+.goals-list-reorder button:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.goals-list-reorder button:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.goals-list-reorder button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.goals-list-reorder button:not(:disabled):hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
 .goals-list-card:hover {
   border-color: var(--border-strong);
 }

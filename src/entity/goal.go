@@ -28,6 +28,7 @@ type Goal struct {
 	Status               GoalStatus `json:"status"`
 	CreatedAt            time.Time  `json:"created_at"`
 	PostponeCount        int        `json:"postpone_count"`
+	Priority             int        `json:"priority"`
 }
 
 func NewGoal(id, workspaceID, title, detail, achievementCondition string, endDate time.Time, mode GoalMode, createdAt time.Time) *Goal {
