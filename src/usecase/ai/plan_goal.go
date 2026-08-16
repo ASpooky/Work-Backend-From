@@ -1,0 +1,161 @@
+package ai
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/ASpooky/Work-Backend-From/src/entity"
+	"github.com/ASpooky/Work-Backend-From/src/usecase/dailytask"
+)
+
+const planDateLayout = "2006-01-02"
+
+const planSystemPrompt = `あなたはユーザーの目標達成を支援するプランナーです。これまでの会話の内容をもとに、
+目標(goal)と、それを確実に達成するための日々のタスク(tasks)を提案してください。
+タスクは無理のない頻度にし、goalの達成条件と矛盾しないようにしてください。
+日付はすべて YYYY-MM-DD 形式で出力してください。`
+
+var planSchema = map[string]any{
+	"type": "object",
+	"properties": map[string]any{
+		"goal": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"title":                 map[string]any{"type": "string"},
+				"detail":                map[string]any{"type": "string"},
+				"achievement_condition": map[string]any{"type": "string"},
+				"end_date":              map[string]any{"type": "string", "description": "YYYY-MM-DD"},
+				"mode":                  map[string]any{"type": "string", "enum": []string{"strict", "want"}},
+			},
+			"required": []string{"title", "detail", "achievement_condition", "end_date", "mode"},
+		},
+		"tasks": map[string]any{
+			"type": "array",
+			"items": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"content":       map[string]any{"type": "string"},
+					"start_date":    map[string]any{"type": "string", "description": "YYYY-MM-DD"},
+					"end_date":      map[string]any{"type": "string", "description": "YYYY-MM-DD"},
+					"rule_type":     map[string]any{"type": "string", "enum": []string{"interval", "weekly"}},
+					"interval_days": map[string]any{"type": "integer"},
+					"weekdays":      map[string]any{"type": "array", "items": map[string]any{"type": "integer"}},
+				},
+				"required": []string{"content", "start_date", "end_date", "rule_type"},
+			},
+		},
+	},
+	"required": []string{"goal", "tasks"},
+}
+
+type PlanGenerator interface {
+	GenerateJSON(ctx context.Context, systemInstruction string, messages []entity.ChatMessage, schema map[string]any) (string, error)
+}
+
+type PlanGoalInput struct {
+	Messages []entity.ChatMessage
+}
+
+type PlannedGoal struct {
+	Title                string
+	Detail               string
+	AchievementCondition string
+	EndDate              time.Time
+	Mode                 entity.GoalMode
+}
+
+type PlannedTask struct {
+	Content   string
+	StartDate time.Time
+	EndDate   time.Time
+	Rule      dailytask.RecurrenceRule
+}
+
+type Plan struct {
+	Goal  PlannedGoal
+	Tasks []PlannedTask
+}
+
+type planGoalWire struct {
+	Title                string `json:"title"`
+	Detail               string `json:"detail"`
+	AchievementCondition string `json:"achievement_condition"`
+	EndDate              string `json:"end_date"`
+	Mode                 string `json:"mode"`
+}
+
+type planTaskWire struct {
+	Content      string `json:"content"`
+	StartDate    string `json:"start_date"`
+	EndDate      string `json:"end_date"`
+	RuleType     string `json:"rule_type"`
+	IntervalDays int    `json:"interval_days"`
+	Weekdays     []int  `json:"weekdays"`
+}
+
+type planWire struct {
+	Goal  planGoalWire   `json:"goal"`
+	Tasks []planTaskWire `json:"tasks"`
+}
+
+type PlanGoalUsecase struct {
+	ai PlanGenerator
+}
+
+func NewPlanGoalUsecase(ai PlanGenerator) *PlanGoalUsecase {
+	return &PlanGoalUsecase{ai: ai}
+}
+
+func (u *PlanGoalUsecase) Execute(ctx context.Context, input PlanGoalInput) (Plan, error) {
+	raw, err := u.ai.GenerateJSON(ctx, planSystemPrompt, input.Messages, planSchema)
+	if err != nil {
+		return Plan{}, err
+	}
+
+	var wire planWire
+	if err := json.Unmarshal([]byte(raw), &wire); err != nil {
+		return Plan{}, fmt.Errorf("failed to parse AI plan response: %w", err)
+	}
+
+	goalEndDate, err := time.Parse(planDateLayout, wire.Goal.EndDate)
+	if err != nil {
+		return Plan{}, fmt.Errorf("invalid goal end_date %q from AI: %w", wire.Goal.EndDate, err)
+	}
+
+	plan := Plan{
+		Goal: PlannedGoal{
+			Title:                wire.Goal.Title,
+			Detail:               wire.Goal.Detail,
+			AchievementCondition: wire.Goal.AchievementCondition,
+			EndDate:              goalEndDate,
+			Mode:                 entity.GoalMode(wire.Goal.Mode),
+		},
+	}
+
+	for _, t := range wire.Tasks {
+		start, err := time.Parse(planDateLayout, t.StartDate)
+		if err != nil {
+			return Plan{}, fmt.Errorf("invalid task start_date %q from AI: %w", t.StartDate, err)
+		}
+		end, err := time.Parse(planDateLayout, t.EndDate)
+		if err != nil {
+			return Plan{}, fmt.Errorf("invalid task end_date %q from AI: %w", t.EndDate, err)
+		}
+
+		rule := dailytask.RecurrenceRule{Type: dailytask.RecurrenceType(t.RuleType), IntervalDays: t.IntervalDays}
+		for _, wd := range t.Weekdays {
+			rule.Weekdays = append(rule.Weekdays, time.Weekday(wd))
+		}
+
+		plan.Tasks = append(plan.Tasks, PlannedTask{
+			Content:   t.Content,
+			StartDate: start,
+			EndDate:   end,
+			Rule:      rule,
+		})
+	}
+
+	return plan, nil
+}

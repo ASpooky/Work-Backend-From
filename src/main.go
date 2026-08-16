@@ -3,16 +3,21 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/ASpooky/Work-Backend-From/src/handler/httpapi"
+	infraai "github.com/ASpooky/Work-Backend-From/src/infra/ai"
 	"github.com/ASpooky/Work-Backend-From/src/infra/clock"
 	"github.com/ASpooky/Work-Backend-From/src/infra/idgen"
 	"github.com/ASpooky/Work-Backend-From/src/repository/sqlite"
 	"github.com/ASpooky/Work-Backend-From/src/usecase"
+	"github.com/ASpooky/Work-Backend-From/src/usecase/ai"
 	"github.com/ASpooky/Work-Backend-From/src/usecase/dailytask"
 	"github.com/ASpooky/Work-Backend-From/src/usecase/goal"
 	"github.com/ASpooky/Work-Backend-From/src/usecase/workspace"
 )
+
+const defaultGeminiModel = "gemini-3.7-flash"
 
 func main() {
 	db, err := sqlite.Open("app.db")
@@ -62,6 +67,20 @@ func main() {
 	mux.HandleFunc("GET /daily-tasks", dailyTaskHandler.List)
 	mux.HandleFunc("PATCH /daily-tasks/{id}", dailyTaskHandler.UpdateDone)
 	mux.HandleFunc("GET /calendar", calendarHandler.Get)
+
+	if geminiAPIKey := os.Getenv("GEMINI_API_KEY"); geminiAPIKey != "" {
+		model := os.Getenv("GEMINI_MODEL")
+		if model == "" {
+			model = defaultGeminiModel
+		}
+		geminiClient := infraai.NewGeminiClient(geminiAPIKey, model)
+		aiHandler := httpapi.NewAIHandler(ai.NewChatUsecase(geminiClient), ai.NewPlanGoalUsecase(geminiClient))
+		mux.HandleFunc("POST /ai/chat", aiHandler.Chat)
+		mux.HandleFunc("POST /ai/plan", aiHandler.Plan)
+		log.Printf("AI features enabled (model=%s)", model)
+	} else {
+		log.Println("GEMINI_API_KEY not set; AI features disabled")
+	}
 
 	log.Println("listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", httpapi.WithCORS(mux)))
