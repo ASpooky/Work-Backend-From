@@ -1,0 +1,61 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { api, type Goal, type Workspace } from '../api'
+import { toUserMessage } from '../errors'
+import { daysUntil } from '../date'
+import './GoalsListPage.css'
+
+type Props = {
+  workspace: Workspace
+  workspaces: Workspace[]
+  refreshKey: number
+}
+
+function GoalsListPage({ workspace, workspaces, refreshKey }: Props) {
+  const [goals, setGoals] = useState<Goal[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.listGoals(workspace.id).then(setGoals).catch((err) => setError(toUserMessage(err)))
+  }, [workspace.id, refreshKey])
+
+  const workspaceNameById = new Map(workspaces.map((w) => [w.id, w.name]))
+  const isAllWorkspaces = workspace.id === ''
+
+  return (
+    <section>
+      <h2>目標</h2>
+
+      {error && <p className="error">{error}</p>}
+
+      {goals.length === 0 && <p className="hint">まだ目標がありません。「登録」から作成してください。</p>}
+
+      <ul className="goals-list">
+        {goals.map((goal) => {
+          const left = daysUntil(goal.end_date)
+          return (
+            <li key={goal.id}>
+              <Link to={`/goals/${goal.id}`} className="goals-list-card">
+                <div className="goals-list-card-header">
+                  <span className="goals-list-card-title">{goal.title}</span>
+                  <span className={`goals-list-card-mode ${goal.mode}`}>
+                    {goal.mode === 'strict' ? '必達' : '努力目標'}
+                  </span>
+                </div>
+                <p className="goals-list-card-condition">{goal.achievement_condition}</p>
+                <div className="goals-list-card-footer">
+                  <span>{left >= 0 ? `あと${left}日` : '期限切れ'}</span>
+                  {isAllWorkspaces && (
+                    <span className="goals-list-card-workspace">{workspaceNameById.get(goal.workspace_id)}</span>
+                  )}
+                </div>
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+export default GoalsListPage

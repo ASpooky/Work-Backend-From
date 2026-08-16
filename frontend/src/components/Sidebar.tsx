@@ -39,6 +39,9 @@ function Sidebar({
         <NavLink to="/" end className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}>
           カレンダー
         </NavLink>
+        <NavLink to="/goals" className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}>
+          目標
+        </NavLink>
         <NavLink to="/register" className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}>
           登録
         </NavLink>

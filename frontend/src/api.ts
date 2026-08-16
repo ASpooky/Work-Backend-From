@@ -171,4 +171,17 @@ export const api = {
     request<Plan>('/ai/plan', { method: 'POST', body: JSON.stringify({ conversation_id: conversationId }) }),
   summarizeGoal: (id: string) =>
     request<{ summary: string }>(`/ai/goals/${encodeURIComponent(id)}/summary`, { method: 'POST' }),
+
+  listGoalConversations: (goalId: string) =>
+    request<Conversation[]>(`/ai/goals/${encodeURIComponent(goalId)}/conversations`),
+  sendGoalReviewMessage: (goalId: string, workspaceId: string, conversationId: string | null, content: string) =>
+    request<{ conversation_id: string; reply: string }>(`/ai/goals/${encodeURIComponent(goalId)}/chat`, {
+      method: 'POST',
+      body: JSON.stringify({ workspace_id: workspaceId, conversation_id: conversationId ?? '', content }),
+    }),
+  reviseGoal: (goalId: string, conversationId: string) =>
+    request<PlannedGoal>(`/ai/goals/${encodeURIComponent(goalId)}/revise`, {
+      method: 'POST',
+      body: JSON.stringify({ conversation_id: conversationId }),
+    }),
 }

@@ -1,12 +1,15 @@
 import { useEffect, useState, type SubmitEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api, type GoalStats } from '../api'
+import { api, type ConversationMessage, type GoalStats, type PlannedGoal } from '../api'
 import { toUserMessage } from '../errors'
+import './AIPlanPage.css'
 import './GoalDetailPage.css'
 
 type Props = {
   onUpdated: () => void
 }
+
+type Mode = 'view' | 'edit' | 'ai'
 
 function GoalDetailPage({ onUpdated }: Props) {
   const { id } = useParams<{ id: string }>()
@@ -15,18 +18,26 @@ function GoalDetailPage({ onUpdated }: Props) {
   const [stats, setStats] = useState<GoalStats | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [editing, setEditing] = useState(false)
+  const [mode, setMode] = useState<Mode>('view')
   const [saving, setSaving] = useState(false)
 
   const [title, setTitle] = useState('')
   const [detail, setDetail] = useState('')
   const [condition, setCondition] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [mode, setMode] = useState<'strict' | 'want'>('strict')
+  const [goalMode, setGoalMode] = useState<'strict' | 'want'>('strict')
 
   const [aiEnabled, setAiEnabled] = useState<boolean | null>(null)
   const [summary, setSummary] = useState<string | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
+
+  // AI review chat state (separate from the manual edit form above).
+  const [reviewConversationId, setReviewConversationId] = useState<string | null>(null)
+  const [reviewMessages, setReviewMessages] = useState<ConversationMessage[]>([])
+  const [reviewInput, setReviewInput] = useState('')
+  const [reviewSending, setReviewSending] = useState(false)
+  const [revising, setRevising] = useState(false)
+  const [revision, setRevision] = useState<PlannedGoal | null>(null)
 
   function load() {
     if (!id) return
@@ -38,7 +49,7 @@ function GoalDetailPage({ onUpdated }: Props) {
         setDetail(s.goal.detail)
         setCondition(s.goal.achievement_condition)
         setEndDate(s.goal.end_date.slice(0, 10))
-        setMode(s.goal.mode)
+        setGoalMode(s.goal.mode)
       })
       .catch((err) => {
         if (err instanceof Error && /404/.test(err.message)) {
@@ -69,9 +80,9 @@ function GoalDetailPage({ onUpdated }: Props) {
         detail,
         achievement_condition: condition,
         end_date: endDate,
-        mode,
+        mode: goalMode,
       })
-      setEditing(false)
+      setMode('view')
       load()
       onUpdated()
     } catch (err) {
@@ -92,6 +103,110 @@ function GoalDetailPage({ onUpdated }: Props) {
       setError(toUserMessage(err))
     } finally {
       setSummaryLoading(false)
+    }
+  }
+
+  async function handleOpenAiReview() {
+    setMode('ai')
+    setRevision(null)
+    setError(null)
+    if (!id) return
+    try {
+      const conversations = await api.listGoalConversations(id)
+      if (conversations.length > 0) {
+        setReviewConversationId(conversations[0].id)
+        setReviewMessages(await api.getConversation(conversations[0].id))
+      } else {
+        setReviewConversationId(null)
+        setReviewMessages([])
+      }
+    } catch (err) {
+      setError(toUserMessage(err))
+    }
+  }
+
+  function handleNewReviewChat() {
+    setReviewConversationId(null)
+    setReviewMessages([])
+    setRevision(null)
+    setError(null)
+  }
+
+  async function handleSendReview(e: SubmitEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!id || !stats || !reviewInput.trim() || reviewSending) return
+
+    const content = reviewInput
+    setReviewMessages((prev) => [
+      ...prev,
+      {
+        id: `pending-${Date.now()}`,
+        conversation_id: reviewConversationId ?? '',
+        role: 'user',
+        content,
+        created_at: new Date().toISOString(),
+      },
+    ])
+    setReviewInput('')
+    setReviewSending(true)
+    try {
+      const { conversation_id, reply } = await api.sendGoalReviewMessage(
+        id,
+        stats.goal.workspace_id,
+        reviewConversationId,
+        content,
+      )
+      setReviewConversationId(conversation_id)
+      setReviewMessages((prev) => [
+        ...prev,
+        {
+          id: `reply-${Date.now()}`,
+          conversation_id,
+          role: 'model',
+          content: reply,
+          created_at: new Date().toISOString(),
+        },
+      ])
+    } catch (err) {
+      setError(toUserMessage(err))
+    } finally {
+      setReviewSending(false)
+    }
+  }
+
+  async function handleGenerateRevision() {
+    if (!id || !reviewConversationId) return
+    setRevising(true)
+    setError(null)
+    try {
+      setRevision(await api.reviseGoal(id, reviewConversationId))
+    } catch (err) {
+      setError(toUserMessage(err))
+    } finally {
+      setRevising(false)
+    }
+  }
+
+  async function handleConfirmRevision() {
+    if (!id || !revision) return
+    setSaving(true)
+    setError(null)
+    try {
+      await api.updateGoal(id, {
+        title: revision.title,
+        detail: revision.detail,
+        achievement_condition: revision.achievement_condition,
+        end_date: revision.end_date,
+        mode: revision.mode,
+      })
+      setMode('view')
+      setRevision(null)
+      load()
+      onUpdated()
+    } catch (err) {
+      setError(toUserMessage(err))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -121,7 +236,7 @@ function GoalDetailPage({ onUpdated }: Props) {
 
       {error && <p className="error">{error}</p>}
 
-      {editing ? (
+      {mode === 'edit' && (
         <form className="goal-detail-edit-form" onSubmit={handleSave}>
           <label>
             タイトル
@@ -141,7 +256,7 @@ function GoalDetailPage({ onUpdated }: Props) {
           </label>
           <label>
             モード
-            <select value={mode} onChange={(e) => setMode(e.target.value as 'strict' | 'want')}>
+            <select value={goalMode} onChange={(e) => setGoalMode(e.target.value as 'strict' | 'want')}>
               <option value="strict">必達</option>
               <option value="want">努力目標</option>
             </select>
@@ -150,18 +265,135 @@ function GoalDetailPage({ onUpdated }: Props) {
             <button type="submit" disabled={saving}>
               {saving ? '保存中…' : '保存'}
             </button>
-            <button type="button" onClick={() => setEditing(false)} disabled={saving}>
+            <button type="button" onClick={() => setMode('view')} disabled={saving}>
               キャンセル
             </button>
           </div>
         </form>
-      ) : (
+      )}
+
+      {mode === 'ai' && (
+        <div className="goal-review-panel">
+          <div className="goal-review-header">
+            <h3>AIと見直す</h3>
+            <div className="goal-review-header-actions">
+              <button type="button" onClick={handleNewReviewChat}>
+                新しい会話
+              </button>
+              <button type="button" onClick={() => setMode('view')}>
+                閉じる
+              </button>
+            </div>
+          </div>
+
+          {!revision && (
+            <>
+              <div className="goal-review-log">
+                {reviewMessages.length === 0 && (
+                  <p className="hint">
+                    見直したい内容を話しかけてください(例: 「期限を1ヶ月延ばしたい」)。AIが現在の目標の内容と進捗を踏まえて相談に乗ります。
+                  </p>
+                )}
+                {reviewMessages.map((m) => (
+                  <div key={m.id} className={`ai-chat-bubble ${m.role}`}>
+                    {m.content}
+                  </div>
+                ))}
+                {reviewSending && <div className="ai-chat-bubble model pending">…</div>}
+              </div>
+
+              <form className="ai-chat-form" onSubmit={handleSendReview}>
+                <input
+                  placeholder="例: そろそろ厳しいので期限を延ばしたい"
+                  value={reviewInput}
+                  onChange={(e) => setReviewInput(e.target.value)}
+                />
+                <button type="submit" disabled={reviewSending}>
+                  送信
+                </button>
+              </form>
+
+              {reviewMessages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleGenerateRevision}
+                  disabled={revising || !reviewConversationId}
+                  className="ai-plan-generate"
+                >
+                  {revising ? '見直し案を作成中…' : 'この内容で見直しを反映する'}
+                </button>
+              )}
+            </>
+          )}
+
+          {revision && (
+            <div className="ai-plan-review">
+              <h3>見直し案(確認・編集してから保存してください)</h3>
+              <div className="ai-plan-goal-fields">
+                <label>
+                  タイトル
+                  <input value={revision.title} onChange={(e) => setRevision({ ...revision, title: e.target.value })} />
+                </label>
+                <label>
+                  詳細
+                  <input
+                    value={revision.detail}
+                    onChange={(e) => setRevision({ ...revision, detail: e.target.value })}
+                  />
+                </label>
+                <label>
+                  達成条件
+                  <input
+                    value={revision.achievement_condition}
+                    onChange={(e) => setRevision({ ...revision, achievement_condition: e.target.value })}
+                  />
+                </label>
+                <label>
+                  期限
+                  <input
+                    type="date"
+                    value={revision.end_date}
+                    onChange={(e) => setRevision({ ...revision, end_date: e.target.value })}
+                  />
+                </label>
+                <label>
+                  モード
+                  <select
+                    value={revision.mode}
+                    onChange={(e) => setRevision({ ...revision, mode: e.target.value as 'strict' | 'want' })}
+                  >
+                    <option value="strict">必達</option>
+                    <option value="want">努力目標</option>
+                  </select>
+                </label>
+              </div>
+              <div className="ai-plan-actions">
+                <button type="button" onClick={() => setRevision(null)}>
+                  会話に戻る
+                </button>
+                <button type="button" onClick={handleConfirmRevision} disabled={saving}>
+                  {saving ? '保存中…' : 'この内容で保存する'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {mode === 'view' && (
         <>
           <div className="goal-detail-header">
             <h2>{goal.title}</h2>
-            <button type="button" onClick={() => setEditing(true)}>
-              目標を見直す
-            </button>
+            <div className="goal-detail-header-actions">
+              {aiEnabled === true && (
+                <button type="button" onClick={handleOpenAiReview}>
+                  AIと見直す
+                </button>
+              )}
+              <button type="button" onClick={() => setMode('edit')}>
+                手動で編集する
+              </button>
+            </div>
           </div>
 
           <p className="goal-detail-detail">{goal.detail}</p>

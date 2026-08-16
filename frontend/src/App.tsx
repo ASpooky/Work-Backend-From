@@ -8,6 +8,7 @@ import CalendarPage from './pages/CalendarPage'
 import RegisterPage from './pages/RegisterPage'
 import SettingsPage from './pages/SettingsPage'
 import GoalDetailPage from './pages/GoalDetailPage'
+import GoalsListPage from './pages/GoalsListPage'
 import './App.css'
 
 const ACTIVE_WORKSPACE_KEY = 'goal-tracker:active-workspace'
@@ -125,6 +126,10 @@ function App() {
                   refreshKey={refreshKey}
                 />
               }
+            />
+            <Route
+              path="/goals"
+              element={<GoalsListPage workspace={workspace} workspaces={workspaces} refreshKey={refreshKey} />}
             />
             <Route
               path="/register"
