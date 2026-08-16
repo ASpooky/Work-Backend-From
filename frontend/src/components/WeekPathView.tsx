@@ -1,9 +1,14 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { GoalCalendar, DayStatus } from '../api'
 import { formatISODate } from '../date'
 import './WeekPathView.css'
 
 const WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土', '日']
+
+// calendar arrives sorted priority ASC, created_at ASC, so a plain slice
+// keeps the most important goals visible without re-sorting here.
+const DEFAULT_VISIBLE_GOAL_COUNT = 7
 
 type Props = {
   calendar: GoalCalendar[]
@@ -23,8 +28,13 @@ function dayNodeState(status: DayStatus, isMilestone: boolean, dayKey: string, t
 }
 
 function WeekPathView({ calendar, days, workspaceNameById }: Props) {
+  const [expanded, setExpanded] = useState(false)
   const dayKeys = days.map(formatISODate)
   const todayKey = formatISODate(new Date())
+
+  const hasMore = calendar.length > DEFAULT_VISIBLE_GOAL_COUNT
+  const visibleCalendar = expanded || !hasMore ? calendar : calendar.slice(0, DEFAULT_VISIBLE_GOAL_COUNT)
+  const hiddenCount = calendar.length - DEFAULT_VISIBLE_GOAL_COUNT
 
   return (
     <div className="week-path">
@@ -35,36 +45,44 @@ function WeekPathView({ calendar, days, workspaceNameById }: Props) {
       {calendar.length === 0 ? (
         <p className="week-path-empty">まだ目標がありません</p>
       ) : (
-        <div className="week-path-table-wrap">
-          <table className="week-path-table">
-            <caption className="sr-only">
-              週間目標カレンダー。目標ごとに1行、曜日ごとの達成状況が並び、達成予定日には目印が付く。
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">
-                  <span className="sr-only">目標</span>
-                </th>
-                {days.map((d, i) => (
-                  <th scope="col" key={dayKeys[i]} className={dayKeys[i] === todayKey ? 'accent' : ''}>
-                    {WEEKDAY_LABELS[i]} {d.getDate()}
+        <>
+          <div className="week-path-table-wrap">
+            <table className="week-path-table">
+              <caption className="sr-only">
+                週間目標カレンダー。目標ごとに1行、曜日ごとの達成状況が並び、達成予定日には目印が付く。
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <span className="sr-only">目標</span>
                   </th>
+                  {days.map((d, i) => (
+                    <th scope="col" key={dayKeys[i]} className={dayKeys[i] === todayKey ? 'accent' : ''}>
+                      {WEEKDAY_LABELS[i]} {d.getDate()}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visibleCalendar.map((gc) => (
+                  <GoalRow
+                    key={gc.goal.id}
+                    goalCalendar={gc}
+                    dayKeys={dayKeys}
+                    todayKey={todayKey}
+                    workspaceName={workspaceNameById?.get(gc.goal.workspace_id)}
+                  />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {calendar.map((gc) => (
-                <GoalRow
-                  key={gc.goal.id}
-                  goalCalendar={gc}
-                  dayKeys={dayKeys}
-                  todayKey={todayKey}
-                  workspaceName={workspaceNameById?.get(gc.goal.workspace_id)}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+
+          {hasMore && (
+            <button type="button" className="week-path-toggle" onClick={() => setExpanded((e) => !e)}>
+              {expanded ? '折りたたむ' : `もっと見る (+${hiddenCount})`}
+            </button>
+          )}
+        </>
       )}
     </div>
   )
