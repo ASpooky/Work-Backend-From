@@ -28,6 +28,10 @@
   flex: 0 0 auto;
 }
 
+.goal-detail-delete {
+  color: var(--danger);
+}
+
 .goal-review-panel {
   margin-top: 0.5rem;
 }

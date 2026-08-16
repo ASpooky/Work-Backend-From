@@ -20,6 +20,7 @@ function GoalDetailPage({ onUpdated }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<Mode>('view')
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const [title, setTitle] = useState('')
   const [detail, setDetail] = useState('')
@@ -89,6 +90,22 @@ function GoalDetailPage({ onUpdated }: Props) {
       setError(toUserMessage(err))
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!id || !stats) return
+    if (!window.confirm(`「${stats.goal.title}」を削除しますか？関連するタスクやAI会話もすべて削除されます。`)) return
+
+    setDeleting(true)
+    setError(null)
+    try {
+      await api.deleteGoal(id)
+      onUpdated()
+      navigate('/goals')
+    } catch (err) {
+      setError(toUserMessage(err))
+      setDeleting(false)
     }
   }
 
@@ -392,6 +409,9 @@ function GoalDetailPage({ onUpdated }: Props) {
               )}
               <button type="button" onClick={() => setMode('edit')}>
                 手動で編集する
+              </button>
+              <button type="button" onClick={handleDelete} disabled={deleting} className="goal-detail-delete">
+                {deleting ? '削除中…' : '削除'}
               </button>
             </div>
           </div>

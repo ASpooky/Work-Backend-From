@@ -45,6 +45,7 @@ func main() {
 	listGoals := goal.NewListGoalsUsecase(goalRepo)
 	getGoalStats := usecase.NewGetGoalStatsUsecase(goalRepo, dailyTaskRepo, clk)
 	updateGoal := goal.NewUpdateGoalUsecase(goalRepo)
+	deleteGoal := goal.NewDeleteGoalUsecase(goalRepo)
 	createDailyTask := dailytask.NewCreateDailyTaskUsecase(dailyTaskRepo, ids, clk)
 	createRecurringDailyTasks := dailytask.NewCreateRecurringDailyTasksUsecase(dailyTaskRepo, ids, clk)
 	listDailyTasks := dailytask.NewListDailyTasksUsecase(dailyTaskRepo)
@@ -61,7 +62,7 @@ func main() {
 	}
 
 	workspaceHandler := httpapi.NewWorkspaceHandler(createWorkspace, listWorkspaces, renameWorkspace, deleteWorkspace)
-	goalHandler := httpapi.NewGoalHandler(createGoal, listGoals, getGoalStats, updateGoal)
+	goalHandler := httpapi.NewGoalHandler(createGoal, listGoals, getGoalStats, updateGoal, deleteGoal)
 	dailyTaskHandler := httpapi.NewDailyTaskHandler(createDailyTask, createRecurringDailyTasks, listDailyTasks, updateDailyTaskDone)
 	calendarHandler := httpapi.NewCalendarHandler(getCalendar)
 
@@ -74,6 +75,7 @@ func main() {
 	mux.HandleFunc("GET /goals", goalHandler.List)
 	mux.HandleFunc("GET /goals/{id}", goalHandler.Get)
 	mux.HandleFunc("PATCH /goals/{id}", goalHandler.Update)
+	mux.HandleFunc("DELETE /goals/{id}", goalHandler.Delete)
 	mux.HandleFunc("POST /daily-tasks", dailyTaskHandler.Create)
 	mux.HandleFunc("POST /daily-tasks/recurring", dailyTaskHandler.CreateRecurring)
 	mux.HandleFunc("GET /daily-tasks", dailyTaskHandler.List)

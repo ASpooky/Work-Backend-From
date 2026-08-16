@@ -17,6 +17,7 @@ type GoalHandler struct {
 	list   *goal.ListGoalsUsecase
 	get    *usecase.GetGoalStatsUsecase
 	update *goal.UpdateGoalUsecase
+	delete *goal.DeleteGoalUsecase
 }
 
 func NewGoalHandler(
@@ -24,8 +25,9 @@ func NewGoalHandler(
 	list *goal.ListGoalsUsecase,
 	get *usecase.GetGoalStatsUsecase,
 	update *goal.UpdateGoalUsecase,
+	del *goal.DeleteGoalUsecase,
 ) *GoalHandler {
-	return &GoalHandler{create: create, list: list, get: get, update: update}
+	return &GoalHandler{create: create, list: list, get: get, update: update, delete: del}
 }
 
 type createGoalRequest struct {
@@ -146,4 +148,15 @@ func (h *GoalHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
+func (h *GoalHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	if err := h.delete.Execute(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

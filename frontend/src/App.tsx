@@ -129,7 +129,14 @@ function App() {
             />
             <Route
               path="/goals"
-              element={<GoalsListPage workspace={workspace} workspaces={workspaces} refreshKey={refreshKey} />}
+              element={
+                <GoalsListPage
+                  workspace={workspace}
+                  workspaces={workspaces}
+                  refreshKey={refreshKey}
+                  onDeleted={bumpRefresh}
+                />
+              }
             />
             <Route
               path="/register"

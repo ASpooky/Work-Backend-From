@@ -9,9 +9,10 @@ type Props = {
   workspace: Workspace
   workspaces: Workspace[]
   refreshKey: number
+  onDeleted: () => void
 }
 
-function GoalsListPage({ workspace, workspaces, refreshKey }: Props) {
+function GoalsListPage({ workspace, workspaces, refreshKey, onDeleted }: Props) {
   const [goals, setGoals] = useState<Goal[]>([])
   const [error, setError] = useState<string | null>(null)
 
@@ -21,6 +22,17 @@ function GoalsListPage({ workspace, workspaces, refreshKey }: Props) {
 
   const workspaceNameById = new Map(workspaces.map((w) => [w.id, w.name]))
   const isAllWorkspaces = workspace.id === ''
+
+  async function handleDelete(goal: Goal) {
+    if (!window.confirm(`「${goal.title}」を削除しますか？関連するタスクやAI会話もすべて削除されます。`)) return
+    try {
+      await api.deleteGoal(goal.id)
+      setGoals((prev) => prev.filter((g) => g.id !== goal.id))
+      onDeleted()
+    } catch (err) {
+      setError(toUserMessage(err))
+    }
+  }
 
   return (
     <section>
@@ -34,7 +46,7 @@ function GoalsListPage({ workspace, workspaces, refreshKey }: Props) {
         {goals.map((goal) => {
           const left = daysUntil(goal.end_date)
           return (
-            <li key={goal.id}>
+            <li key={goal.id} className="goals-list-item">
               <Link to={`/goals/${goal.id}`} className="goals-list-card">
                 <div className="goals-list-card-header">
                   <span className="goals-list-card-title">{goal.title}</span>
@@ -50,6 +62,14 @@ function GoalsListPage({ workspace, workspaces, refreshKey }: Props) {
                   )}
                 </div>
               </Link>
+              <button
+                type="button"
+                className="goals-list-delete"
+                onClick={() => handleDelete(goal)}
+                aria-label={`${goal.title}を削除`}
+              >
+                🗑
+              </button>
             </li>
           )
         })}

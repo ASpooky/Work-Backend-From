@@ -5,7 +5,14 @@
   margin-top: 1rem;
 }
 
+.goals-list-item {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
 .goals-list-card {
+  flex: 1 1 auto;
   display: block;
   background: var(--code-bg);
   border: 0.5px solid var(--border);
@@ -13,6 +20,20 @@
   padding: 0.85rem 1rem;
   text-decoration: none;
   color: inherit;
+}
+
+.goals-list-delete {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.goals-list-delete:hover {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 .goals-list-card:hover {

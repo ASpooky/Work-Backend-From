@@ -134,6 +134,7 @@ export const api = {
       mode: 'strict' | 'want'
     },
   ) => request<{ id: string }>(`/goals/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteGoal: (id: string) => request<void>(`/goals/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   listDailyTasks: (date: string) =>
     request<DailyTask[]>(`/daily-tasks?date=${encodeURIComponent(date)}`),

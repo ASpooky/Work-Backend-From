@@ -39,6 +39,36 @@ func (r *GoalRepository) Update(goal *entity.Goal) error {
 	return err
 }
 
+// Delete removes a goal and everything scoped to it (its daily tasks, and
+// any goal-review AI conversations plus their messages) in a single
+// transaction, mirroring WorkspaceRepository.Delete's approach since SQLite
+// foreign keys aren't enforced here. A goal-unscoped (general) conversation
+// in the same workspace is untouched — it isn't this goal's.
+func (r *GoalRepository) Delete(id string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`DELETE FROM conversation_messages WHERE conversation_id IN (SELECT id FROM conversations WHERE goal_id = ?)`, []any{id}},
+		{`DELETE FROM conversations WHERE goal_id = ?`, []any{id}},
+		{`DELETE FROM daily_tasks WHERE goal_id = ?`, []any{id}},
+		{`DELETE FROM goals WHERE id = ?`, []any{id}},
+	}
+	for _, s := range statements {
+		if _, err := tx.Exec(s.query, s.args...); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 func (r *GoalRepository) UpdatePostponement(id string, endDate time.Time, postponeCount int) error {
 	_, err := r.db.Exec(
 		`UPDATE goals SET end_date = ?, postpone_count = ? WHERE id = ?`,
