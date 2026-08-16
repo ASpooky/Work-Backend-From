@@ -79,6 +79,41 @@ func TestGoalRepository_SaveAndFindByWorkspaceID(t *testing.T) {
 	}
 }
 
+func TestGoalRepository_UpdateEndDate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	workspace := entity.NewWorkSpace("workspace-001", DefaultUserID, "private", time.Now())
+	if err := workspaceRepo.Save(workspace); err != nil {
+		t.Fatalf("workspaceRepo.Save() returned unexpected error: %v", err)
+	}
+
+	repo := NewGoalRepository(db)
+	endDate := time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC)
+	goal := entity.NewGoal("goal-001", workspace.ID, "Run a marathon", "detail", "condition", endDate, entity.ModeStrict, time.Now())
+	if err := repo.Save(goal); err != nil {
+		t.Fatalf("Save() returned unexpected error: %v", err)
+	}
+
+	newEndDate := time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)
+	if err := repo.UpdateEndDate(goal.ID, newEndDate); err != nil {
+		t.Fatalf("UpdateEndDate() returned unexpected error: %v", err)
+	}
+
+	got, err := repo.FindByWorkspaceID(workspace.ID)
+	if err != nil {
+		t.Fatalf("FindByWorkspaceID() returned unexpected error: %v", err)
+	}
+	if len(got) != 1 || !got[0].EndDate.Equal(newEndDate) {
+		t.Fatalf("FindByWorkspaceID() after UpdateEndDate = %+v, want EndDate=%v", got, newEndDate)
+	}
+}
+
 func TestDailyTaskRepository_SaveAndFindByDate(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
 	db, err := Open(path)
@@ -211,5 +246,114 @@ func TestDailyTaskRepository_UpdateDone(t *testing.T) {
 	}
 	if len(got) != 1 || !got[0].Done {
 		t.Fatalf("FindByDate() after UpdateDone = %+v, want Done=true", got)
+	}
+}
+
+func TestDailyTaskRepository_FindOldestPendingBefore(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	workspace := entity.NewWorkSpace("workspace-001", DefaultUserID, "private", time.Now())
+	if err := workspaceRepo.Save(workspace); err != nil {
+		t.Fatalf("workspaceRepo.Save() returned unexpected error: %v", err)
+	}
+
+	goalRepo := NewGoalRepository(db)
+	goal := entity.NewGoal("goal-001", workspace.ID, "Run a marathon", "detail", "condition", time.Now(), entity.ModeStrict, time.Now())
+	if err := goalRepo.Save(goal); err != nil {
+		t.Fatalf("goalRepo.Save() returned unexpected error: %v", err)
+	}
+
+	repo := NewDailyTaskRepository(db)
+	older := entity.NewDailyTask("task-001", goal.ID, time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC), "Run 5km", time.Now())
+	newer := entity.NewDailyTask("task-002", goal.ID, time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC), "Run 5km", time.Now())
+	doneOne := entity.NewDailyTask("task-003", goal.ID, time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC), "Run 5km", time.Now())
+	doneOne.Done = true
+	for _, task := range []*entity.DailyTask{older, newer, doneOne} {
+		if err := repo.Save(task); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	before := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
+	got, err := repo.FindOldestPendingBefore(goal.ID, before)
+	if err != nil {
+		t.Fatalf("FindOldestPendingBefore() returned unexpected error: %v", err)
+	}
+	if got == nil || got.ID != older.ID {
+		t.Fatalf("FindOldestPendingBefore() = %+v, want task-001 (oldest not-done, ignoring the already-done task)", got)
+	}
+
+	none, err := repo.FindOldestPendingBefore(goal.ID, time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("FindOldestPendingBefore() returned unexpected error: %v", err)
+	}
+	if none != nil {
+		t.Errorf("FindOldestPendingBefore() with an early cutoff = %+v, want nil", none)
+	}
+}
+
+func TestDailyTaskRepository_ShiftPendingForward(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	workspace := entity.NewWorkSpace("workspace-001", DefaultUserID, "private", time.Now())
+	if err := workspaceRepo.Save(workspace); err != nil {
+		t.Fatalf("workspaceRepo.Save() returned unexpected error: %v", err)
+	}
+
+	goalRepo := NewGoalRepository(db)
+	goal := entity.NewGoal("goal-001", workspace.ID, "Run a marathon", "detail", "condition", time.Now(), entity.ModeStrict, time.Now())
+	if err := goalRepo.Save(goal); err != nil {
+		t.Fatalf("goalRepo.Save() returned unexpected error: %v", err)
+	}
+
+	repo := NewDailyTaskRepository(db)
+	missed := entity.NewDailyTask("task-001", goal.ID, time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC), "Run 5km", time.Now())
+	future := entity.NewDailyTask("task-002", goal.ID, time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC), "Run 5km", time.Now())
+	doneFuture := entity.NewDailyTask("task-003", goal.ID, time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC), "Run 5km", time.Now())
+	doneFuture.Done = true
+	before := entity.NewDailyTask("task-004", goal.ID, time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC), "Run 5km", time.Now())
+	for _, task := range []*entity.DailyTask{missed, future, doneFuture, before} {
+		if err := repo.Save(task); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	if err := repo.ShiftPendingForward(goal.ID, missed.Date); err != nil {
+		t.Fatalf("ShiftPendingForward() returned unexpected error: %v", err)
+	}
+
+	got, err := repo.FindByGoalIDAndDateRange(goal.ID, time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC), time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("FindByGoalIDAndDateRange() returned unexpected error: %v", err)
+	}
+
+	byID := make(map[string]*entity.DailyTask)
+	for _, task := range got {
+		byID[task.ID] = task
+	}
+
+	if !byID[missed.ID].Date.Equal(time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("missed task Date = %v, want 2026-08-11 (shifted +1 day)", byID[missed.ID].Date)
+	}
+	if !byID[future.ID].Date.Equal(time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("future task Date = %v, want 2026-08-13 (shifted +1 day)", byID[future.ID].Date)
+	}
+	if !byID[doneFuture.ID].Date.Equal(time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("done task Date = %v, want unchanged 2026-08-11 (done tasks are never shifted)", byID[doneFuture.ID].Date)
+	}
+	if !byID[before.ID].Date.Equal(time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("earlier task Date = %v, want unchanged 2026-08-09 (before the shift's fromDate)", byID[before.ID].Date)
 	}
 }

@@ -41,6 +41,11 @@ func main() {
 		log.Fatalf("failed to ensure default workspace: %v", err)
 	}
 
+	catchUpMissedTasks := usecase.NewCatchUpMissedTasksUsecase(goalRepo, goalRepo, dailyTaskRepo, dailyTaskRepo, clk)
+	if err := catchUpAllWorkspaces(listWorkspaces, catchUpMissedTasks); err != nil {
+		log.Fatalf("failed to catch up missed tasks: %v", err)
+	}
+
 	workspaceHandler := httpapi.NewWorkspaceHandler(createWorkspace, listWorkspaces)
 	goalHandler := httpapi.NewGoalHandler(createGoal, listGoals)
 	dailyTaskHandler := httpapi.NewDailyTaskHandler(createDailyTask, listDailyTasks, updateDailyTaskDone)
@@ -74,4 +79,18 @@ func ensureDefaultWorkspace(create *workspace.CreateWorkspaceUsecase, list *work
 		Name:   "private",
 	})
 	return err
+}
+
+func catchUpAllWorkspaces(list *workspace.ListWorkspacesUsecase, catchUp *usecase.CatchUpMissedTasksUsecase) error {
+	workspaces, err := list.Execute()
+	if err != nil {
+		return err
+	}
+
+	for _, ws := range workspaces {
+		if err := catchUp.Execute(ws.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }

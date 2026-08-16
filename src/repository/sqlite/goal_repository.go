@@ -27,6 +27,11 @@ func (r *GoalRepository) Save(goal *entity.Goal) error {
 	return err
 }
 
+func (r *GoalRepository) UpdateEndDate(id string, endDate time.Time) error {
+	_, err := r.db.Exec(`UPDATE goals SET end_date = ? WHERE id = ?`, endDate.Format(dateLayout), id)
+	return err
+}
+
 func (r *GoalRepository) FindByWorkspaceID(workspaceID string) ([]*entity.Goal, error) {
 	rows, err := r.db.Query(
 		`SELECT id, workspace_id, title, detail, achievement_condition, end_date, mode, status, created_at

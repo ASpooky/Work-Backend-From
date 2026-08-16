@@ -71,6 +71,51 @@ func (r *DailyTaskRepository) UpdateDone(id string, done bool) error {
 	return err
 }
 
+// FindOldestPendingBefore returns the earliest not-done task for goalID with
+// a date strictly before `before`, or nil if there is none.
+func (r *DailyTaskRepository) FindOldestPendingBefore(goalID string, before time.Time) (*entity.DailyTask, error) {
+	row := r.db.QueryRow(
+		`SELECT id, goal_id, date, content, done, created_at FROM daily_tasks
+		 WHERE goal_id = ? AND done = 0 AND date < ?
+		 ORDER BY date ASC LIMIT 1`,
+		goalID, before.Format(dateLayout),
+	)
+
+	var id, gID, dateStr, content, createdAt string
+	var done int
+	if err := row.Scan(&id, &gID, &dateStr, &content, &done, &createdAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	parsedDate, err := time.Parse(dateLayout, dateStr)
+	if err != nil {
+		return nil, err
+	}
+	parsedCreatedAt, err := time.Parse(time.RFC3339, createdAt)
+	if err != nil {
+		return nil, err
+	}
+
+	task := entity.NewDailyTask(id, gID, parsedDate, content, parsedCreatedAt)
+	task.Done = done != 0
+	return task, nil
+}
+
+// ShiftPendingForward pushes every not-done task for goalID with a date on
+// or after fromDate forward by one day. Done tasks are left untouched so
+// historical completions are never rewritten.
+func (r *DailyTaskRepository) ShiftPendingForward(goalID string, fromDate time.Time) error {
+	_, err := r.db.Exec(
+		`UPDATE daily_tasks SET date = date(date, '+1 day')
+		 WHERE goal_id = ? AND done = 0 AND date >= ?`,
+		goalID, fromDate.Format(dateLayout),
+	)
+	return err
+}
+
 func (r *DailyTaskRepository) FindByDate(date time.Time) ([]*entity.DailyTask, error) {
 	rows, err := r.db.Query(
 		`SELECT id, goal_id, date, content, done, created_at FROM daily_tasks WHERE date = ? ORDER BY created_at`,

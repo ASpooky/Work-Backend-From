@@ -67,6 +67,7 @@ func main() {
 
 	rng := rand.New(rand.NewSource(42))
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	from := now.AddDate(0, -3, 0)
 	to := now.AddDate(0, 1, 0)
 
@@ -100,7 +101,15 @@ func main() {
 			}
 
 			task := entity.NewDailyTask(uuid.NewString(), goal.ID, d, s.title, d)
-			if !d.After(now) {
+			switch {
+			case d.Before(today) && s.mode == entity.ModeStrict:
+				// Strict-mode goals get caught up automatically (see
+				// usecase.CatchUpMissedTasksUsecase): an undone task never
+				// stays in the past, it gets pushed forward until it's
+				// done or reaches today. So seeded history must already be
+				// consistent with that — no undone strict tasks pre-today.
+				task.Done = true
+			case !d.After(now):
 				task.Done = rng.Float64() < s.doneRate
 			}
 			if err := taskRepo.Save(task); err != nil {
