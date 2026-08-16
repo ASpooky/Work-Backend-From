@@ -40,6 +40,33 @@ export type GoalCalendar = {
   days: Record<string, DayEntry>
 }
 
+export type ChatMessage = {
+  role: 'user' | 'model'
+  content: string
+}
+
+export type PlannedGoal = {
+  title: string
+  detail: string
+  achievement_condition: string
+  end_date: string
+  mode: 'strict' | 'want'
+}
+
+export type PlannedTask = {
+  content: string
+  start_date: string
+  end_date: string
+  rule_type: 'interval' | 'weekly'
+  interval_days?: number
+  weekdays?: number[]
+}
+
+export type Plan = {
+  goal: PlannedGoal
+  tasks: PlannedTask[]
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -88,4 +115,10 @@ export const api = {
     request<GoalCalendar[]>(
       `/calendar?workspace_id=${encodeURIComponent(workspaceId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
     ),
+
+  aiStatus: () => request<{ enabled: boolean }>('/ai/status'),
+  aiChat: (messages: ChatMessage[]) =>
+    request<{ reply: string }>('/ai/chat', { method: 'POST', body: JSON.stringify({ messages }) }),
+  aiPlan: (messages: ChatMessage[]) =>
+    request<Plan>('/ai/plan', { method: 'POST', body: JSON.stringify({ messages }) }),
 }

@@ -1,0 +1,111 @@
+.ai-plan-page {
+  max-width: 32rem;
+}
+
+.ai-chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  min-height: 4rem;
+}
+
+.ai-chat-bubble {
+  max-width: 85%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.ai-chat-bubble.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.ai-chat-bubble.model {
+  align-self: flex-start;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text-h);
+}
+
+.ai-chat-bubble.pending {
+  opacity: 0.6;
+}
+
+.ai-chat-form {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.ai-chat-form input {
+  flex: 1 1 auto;
+}
+
+.ai-plan-generate {
+  margin-top: 1rem;
+}
+
+.ai-plan-review {
+  margin-top: 1rem;
+}
+
+.ai-plan-goal-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.ai-plan-goal-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.ai-plan-task-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.ai-plan-task-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.ai-plan-task-list li.removed {
+  opacity: 0.45;
+}
+
+.ai-plan-task-content {
+  font-size: 0.9rem;
+  color: var(--text-h);
+}
+
+.ai-plan-task-sub {
+  font-size: 0.75rem;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.ai-plan-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}

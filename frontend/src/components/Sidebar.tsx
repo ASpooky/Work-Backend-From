@@ -18,6 +18,9 @@ function Sidebar({ workspaceName }: Props) {
         <NavLink to="/register" className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}>
           登録
         </NavLink>
+        <NavLink to="/ai-plan" className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}>
+          AIと計画
+        </NavLink>
         <NavLink to="/settings" className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}>
           設定
         </NavLink>

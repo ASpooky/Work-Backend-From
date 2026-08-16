@@ -75,6 +75,7 @@ func main() {
 		}
 		geminiClient := infraai.NewGeminiClient(geminiAPIKey, model)
 		aiHandler := httpapi.NewAIHandler(ai.NewChatUsecase(geminiClient), ai.NewPlanGoalUsecase(geminiClient))
+		mux.HandleFunc("GET /ai/status", aiHandler.Status)
 		mux.HandleFunc("POST /ai/chat", aiHandler.Chat)
 		mux.HandleFunc("POST /ai/plan", aiHandler.Plan)
 		log.Printf("AI features enabled (model=%s)", model)

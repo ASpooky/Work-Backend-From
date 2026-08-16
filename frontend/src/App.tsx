@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { api, type Goal, type Workspace } from './api'
 import Sidebar from './components/Sidebar'
+import AIPlanPage from './pages/AIPlanPage'
 import CalendarPage from './pages/CalendarPage'
 import RegisterPage from './pages/RegisterPage'
 import SettingsPage from './pages/SettingsPage'
@@ -45,6 +46,7 @@ function App() {
               path="/register"
               element={<RegisterPage workspace={workspace} goals={goals} onCreated={bumpRefresh} />}
             />
+            <Route path="/ai-plan" element={<AIPlanPage workspace={workspace} onCreated={bumpRefresh} />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         )}

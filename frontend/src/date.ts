@@ -1,5 +1,22 @@
 export type Scale = 'day' | 'week' | 'month' | 'year'
 
+export const WEEKDAY_LABELS_JA = ['日', '月', '火', '水', '木', '金', '土']
+
+export function describeRecurrence(rule: {
+  rule_type: 'interval' | 'weekly'
+  interval_days?: number
+  weekdays?: number[]
+}): string {
+  if (rule.rule_type === 'weekly') {
+    const days = (rule.weekdays ?? []).map((d) => WEEKDAY_LABELS_JA[d]).join('・')
+    return `毎週${days || '?'}曜日`
+  }
+  const n = rule.interval_days ?? 1
+  if (n === 1) return '毎日'
+  if (n === 2) return '隔日'
+  return `${n}日ごと`
+}
+
 export function startOfPeriod(scale: Scale, date: Date): Date {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
   switch (scale) {

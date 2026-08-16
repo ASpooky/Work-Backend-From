@@ -1,9 +1,7 @@
 import { useEffect, useState, type SubmitEvent } from 'react'
 import { api, type Goal, type Workspace } from '../api'
 import { toUserMessage } from '../errors'
-import { daysUntil } from '../date'
-
-const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
+import { daysUntil, WEEKDAY_LABELS_JA } from '../date'
 
 function todayISO(): string {
   const now = new Date()
@@ -185,7 +183,7 @@ function RegisterPage({ workspace, goals, onCreated }: Props) {
               <div className="recurrence-detail">
                 曜日
                 <div className="weekday-picker">
-                  {WEEKDAY_LABELS.map((label, i) => (
+                  {WEEKDAY_LABELS_JA.map((label, i) => (
                     <button
                       key={label}
                       type="button"

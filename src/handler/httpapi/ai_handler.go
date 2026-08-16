@@ -34,6 +34,10 @@ func toChatMessages(req []chatMessageRequest) []entity.ChatMessage {
 	return messages
 }
 
+func (h *AIHandler) Status(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]bool{"enabled": true})
+}
+
 func (h *AIHandler) Chat(w http.ResponseWriter, r *http.Request) {
 	var req chatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

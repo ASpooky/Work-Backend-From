@@ -1,22 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '../api'
 import { applyTheme, loadTheme, type ThemePreference } from '../theme'
-
-const API_KEY_STORAGE_KEY = 'goal-tracker:ai-api-key'
 
 function SettingsPage() {
   const [theme, setTheme] = useState<ThemePreference>(() => loadTheme())
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem(API_KEY_STORAGE_KEY) ?? '')
-  const [saved, setSaved] = useState(false)
+  const [aiEnabled, setAiEnabled] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    api
+      .aiStatus()
+      .then((s) => setAiEnabled(s.enabled))
+      .catch(() => setAiEnabled(false))
+  }, [])
 
   function handleThemeChange(next: ThemePreference) {
     setTheme(next)
     applyTheme(next)
-  }
-
-  function handleSaveApiKey() {
-    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 1500)
   }
 
   return (
@@ -40,23 +39,22 @@ function SettingsPage() {
 
       <section>
         <h2>
-          AI連携 <span className="badge-unimplemented">未実装</span>
+          AI連携{' '}
+          {aiEnabled === true && <span className="badge-enabled">有効</span>}
+          {aiEnabled === false && <span className="badge-unimplemented">無効</span>}
         </h2>
-        <p className="settings-note">
-          ここで保存した API キーは今のところブラウザのローカルストレージに保存されるだけで、まだどの機能からも参照されていません。
-        </p>
-        <div className="settings-api-key">
-          <input
-            type="password"
-            placeholder="sk-..."
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
-          <button type="button" onClick={handleSaveApiKey}>
-            保存
-          </button>
-          {saved && <span className="settings-saved">保存しました</span>}
-        </div>
+        {aiEnabled === false && (
+          <p className="settings-note">
+            バックエンドに <code>GEMINI_API_KEY</code> 環境変数が設定されていないため無効です。サーバーを起動する前に
+            設定してください(<code>GEMINI_MODEL</code> でモデルも変更できます、未設定時は gemini-3.7-flash)。
+            APIキーはブラウザ側には一切保存されません。
+          </p>
+        )}
+        {aiEnabled === true && (
+          <p className="settings-note">
+            サイドバーの「AIと計画」から、目標の壁打きとタスクへの落とし込みができます。
+          </p>
+        )}
       </section>
     </>
   )
