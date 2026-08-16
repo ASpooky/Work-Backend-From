@@ -1,4 +1,4 @@
-import { useState, type SubmitEvent } from 'react'
+import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import type { Workspace } from '../api'
 import './WorkspaceSwitcher.css'
 
@@ -18,7 +18,37 @@ function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onSwitch, onCreate, 
   const [creating, setCreating] = useState(false)
   const [createValue, setCreateValue] = useState('')
 
+  const containerRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
   const active = activeWorkspaceId === '' ? { name: 'すべて' } : workspaces.find((w) => w.id === activeWorkspaceId)
+
+  // Keyboard/screen-reader support: close on Escape, close on outside click,
+  // and move focus into the menu when it opens so it isn't silently invisible
+  // to keyboard/AT users.
+  useEffect(() => {
+    if (!open) return
+
+    const firstItem = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')
+    firstItem?.focus()
+
+    function handlePointerDown(e: MouseEvent) {
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
 
   function startRename(w: Workspace) {
     setRenamingId(w.id)
@@ -54,18 +84,25 @@ function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onSwitch, onCreate, 
   }
 
   return (
-    <div className="workspace-switcher">
-      <button type="button" className="workspace-switcher-trigger" onClick={() => setOpen((o) => !o)}>
+    <div className="workspace-switcher" ref={containerRef}>
+      <button
+        type="button"
+        className="workspace-switcher-trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
         <span>{active?.name ?? '...'}</span>
         <span className="workspace-switcher-caret">▾</span>
       </button>
 
       {open && (
-        <div className="workspace-switcher-menu">
+        <div className="workspace-switcher-menu" role="menu" ref={menuRef}>
           <ul>
-            <li>
+            <li role="none">
               <button
                 type="button"
+                role="menuitem"
                 className={`workspace-switcher-item${activeWorkspaceId === '' ? ' active' : ''}`}
                 onClick={() => {
                   onSwitch('')
@@ -76,7 +113,7 @@ function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onSwitch, onCreate, 
               </button>
             </li>
             {workspaces.map((w) => (
-              <li key={w.id}>
+              <li key={w.id} role="none">
                 {renamingId === w.id ? (
                   <form onSubmit={submitRename}>
                     <input
@@ -90,6 +127,7 @@ function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onSwitch, onCreate, 
                   <div className="workspace-switcher-row">
                     <button
                       type="button"
+                      role="menuitem"
                       className={`workspace-switcher-item${w.id === activeWorkspaceId ? ' active' : ''}`}
                       onClick={() => {
                         onSwitch(w.id)
