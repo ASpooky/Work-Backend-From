@@ -178,8 +178,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ workspace_id: workspaceId, conversation_id: conversationId ?? '', content }),
     }),
-  aiPlan: (conversationId: string) =>
-    request<Plan>('/ai/plan', { method: 'POST', body: JSON.stringify({ conversation_id: conversationId }) }),
+  aiPlan: (workspaceId: string, conversationId: string) =>
+    request<Plan>('/ai/plan', {
+      method: 'POST',
+      body: JSON.stringify({ workspace_id: workspaceId, conversation_id: conversationId }),
+    }),
   summarizeGoal: (id: string) =>
     request<{ summary: string }>(`/ai/goals/${encodeURIComponent(id)}/summary`, { method: 'POST' }),
 

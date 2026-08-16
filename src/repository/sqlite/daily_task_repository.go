@@ -106,6 +106,27 @@ func (r *DailyTaskRepository) FindByDateAndWorkspaceID(date time.Time, workspace
 	return scanDailyTasks(rows)
 }
 
+// FindByWorkspaceIDAndDateRange returns every task in [from, to] whose goal
+// belongs to workspaceID, across all of that workspace's goals — used to
+// build a "here's what's already scheduled elsewhere" summary for the AI
+// planning/review prompts, not scoped to any single goal.
+func (r *DailyTaskRepository) FindByWorkspaceIDAndDateRange(workspaceID string, from, to time.Time) ([]*entity.DailyTask, error) {
+	rows, err := r.db.Query(
+		`SELECT dt.id, dt.goal_id, dt.date, dt.content, dt.done, dt.created_at, dt.completed_at
+		 FROM daily_tasks dt
+		 JOIN goals g ON g.id = dt.goal_id
+		 WHERE g.workspace_id = ? AND dt.date >= ? AND dt.date <= ?
+		 ORDER BY dt.date`,
+		workspaceID, from.Format(dateLayout), to.Format(dateLayout),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanDailyTasks(rows)
+}
+
 func (r *DailyTaskRepository) FindByDate(date time.Time) ([]*entity.DailyTask, error) {
 	rows, err := r.db.Query(
 		`SELECT id, goal_id, date, content, done, created_at, completed_at FROM daily_tasks WHERE date = ? ORDER BY created_at`,

@@ -22,7 +22,8 @@ const planSystemPromptTemplate = `あなたはユーザーの目標達成を支�
 会話の内容が、性質の異なる複数の段階（フェーズ）に分けたほうが自然な場合は、
 goalsに複数の目標を、時系列順に並べて提案してください(例: 「土台作り期」→「追い込み期」のように、
 それぞれ異なる達成条件・期限・タスクを持つ別の目標として)。単一の目標で十分な内容であれば、
-goalsには1件だけを含めてください。無理に分割する必要はありません。`
+goalsには1件だけを含めてください。無理に分割する必要はありません。
+%s`
 
 const planRequestMessage = "これまでの内容をもとに、目標と日々のタスクの提案を出力してください。"
 
@@ -71,6 +72,7 @@ type ConversationMessageReader interface {
 
 type PlanGoalInput struct {
 	ConversationID string
+	WorkspaceID    string
 }
 
 type PlannedGoal struct {
@@ -124,13 +126,14 @@ type planWire struct {
 }
 
 type PlanGoalUsecase struct {
-	ai       PlanGenerator
-	messages ConversationMessageReader
-	clock    usecase.Clock
+	ai             PlanGenerator
+	messages       ConversationMessageReader
+	workspaceTasks WorkspaceTaskRangeReader
+	clock          usecase.Clock
 }
 
-func NewPlanGoalUsecase(ai PlanGenerator, messages ConversationMessageReader, clock usecase.Clock) *PlanGoalUsecase {
-	return &PlanGoalUsecase{ai: ai, messages: messages, clock: clock}
+func NewPlanGoalUsecase(ai PlanGenerator, messages ConversationMessageReader, workspaceTasks WorkspaceTaskRangeReader, clock usecase.Clock) *PlanGoalUsecase {
+	return &PlanGoalUsecase{ai: ai, messages: messages, workspaceTasks: workspaceTasks, clock: clock}
 }
 
 func (u *PlanGoalUsecase) Execute(ctx context.Context, input PlanGoalInput) (Plan, error) {
@@ -139,7 +142,18 @@ func (u *PlanGoalUsecase) Execute(ctx context.Context, input PlanGoalInput) (Pla
 		return Plan{}, err
 	}
 
-	prompt := fmt.Sprintf(planSystemPromptTemplate, u.clock.Now().Format(planDateLayout))
+	now := u.clock.Now()
+	busyDays := ""
+	if input.WorkspaceID != "" {
+		lookaheadEnd := now.AddDate(0, 0, busyDaysLookaheadDays)
+		busyTasks, err := u.workspaceTasks.FindByWorkspaceIDAndDateRange(input.WorkspaceID, now, lookaheadEnd)
+		if err != nil {
+			return Plan{}, err
+		}
+		busyDays = summarizeBusyDays(busyTasks, "")
+	}
+
+	prompt := fmt.Sprintf(planSystemPromptTemplate, now.Format(planDateLayout), busyDays)
 
 	// The Gemini API rejects a `contents` array whose last turn has role
 	// "model" ("Requests ending with a model turn are not supported."),

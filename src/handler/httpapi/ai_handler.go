@@ -129,6 +129,7 @@ type planResponse struct {
 
 type planRequest struct {
 	ConversationID string `json:"conversation_id"`
+	WorkspaceID    string `json:"workspace_id"`
 }
 
 func (h *AIHandler) Plan(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +139,7 @@ func (h *AIHandler) Plan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	plan, err := h.plan.Execute(r.Context(), ai.PlanGoalInput{ConversationID: req.ConversationID})
+	plan, err := h.plan.Execute(r.Context(), ai.PlanGoalInput{ConversationID: req.ConversationID, WorkspaceID: req.WorkspaceID})
 	if err != nil {
 		log.Printf("AI plan generation failed: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

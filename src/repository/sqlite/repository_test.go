@@ -592,3 +592,50 @@ func TestDailyTaskRepository_FindByDateAndWorkspaceID(t *testing.T) {
 		t.Errorf("FindByDateAndWorkspaceID(B) = %+v, want only task-b", gotB)
 	}
 }
+
+func TestDailyTaskRepository_FindByWorkspaceIDAndDateRange(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	wsA := entity.NewWorkSpace("workspace-a", DefaultUserID, "A", time.Now())
+	wsB := entity.NewWorkSpace("workspace-b", DefaultUserID, "B", time.Now())
+	for _, ws := range []*entity.WorkSpace{wsA, wsB} {
+		if err := workspaceRepo.Save(ws); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	goalRepo := NewGoalRepository(db)
+	goalA := entity.NewGoal("goal-a", wsA.ID, "Aのgoal", "detail", "cond", time.Now(), entity.ModeStrict, time.Now())
+	goalB := entity.NewGoal("goal-b", wsB.ID, "Bのgoal", "detail", "cond", time.Now(), entity.ModeStrict, time.Now())
+	for _, g := range []*entity.Goal{goalA, goalB} {
+		if err := goalRepo.Save(g); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	repo := NewDailyTaskRepository(db)
+	from := time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 8, 23, 0, 0, 0, 0, time.UTC)
+	inRangeA := entity.NewDailyTask("task-in-range-a", goalA.ID, from.AddDate(0, 0, 2), "範囲内A", time.Now())
+	inRangeB := entity.NewDailyTask("task-in-range-b", goalB.ID, from.AddDate(0, 0, 2), "範囲内B", time.Now())
+	outOfRange := entity.NewDailyTask("task-out-of-range", goalA.ID, to.AddDate(0, 0, 1), "範囲外", time.Now())
+	for _, task := range []*entity.DailyTask{inRangeA, inRangeB, outOfRange} {
+		if err := repo.Save(task); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	got, err := repo.FindByWorkspaceIDAndDateRange(wsA.ID, from, to)
+	if err != nil {
+		t.Fatalf("FindByWorkspaceIDAndDateRange() returned unexpected error: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != inRangeA.ID {
+		t.Errorf("FindByWorkspaceIDAndDateRange(A) = %+v, want only task-in-range-a (workspace-scoped, in range)", got)
+	}
+}

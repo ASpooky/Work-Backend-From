@@ -127,7 +127,7 @@ function AIPlanPage({ workspace, isAllWorkspaces, onCreated }: Props) {
     setPlanning(true)
     setError(null)
     try {
-      setPlan(await api.aiPlan(activeConversationId))
+      setPlan(await api.aiPlan(workspace.id, activeConversationId))
     } catch (err) {
       setError(toUserMessage(err))
     } finally {

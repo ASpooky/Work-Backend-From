@@ -49,7 +49,7 @@ func TestPlanGoalUsecase_Execute_SingleGoal(t *testing.T) {
 		entity.NewConversationMessage("msg-001", "conv-001", entity.ChatRoleUser, "5km走れるようになりたい", time.Now()),
 	}}
 	fixedNow := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
-	uc := NewPlanGoalUsecase(gen, messages, stubClock{now: fixedNow})
+	uc := NewPlanGoalUsecase(gen, messages, stubWorkspaceTaskRangeReader{}, stubClock{now: fixedNow})
 
 	got, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"})
 	if err != nil {
@@ -131,7 +131,7 @@ func TestPlanGoalUsecase_Execute_MultiplePhaseGoals(t *testing.T) {
 	messages := &spyMessageRepo{existing: []*entity.ConversationMessage{
 		entity.NewConversationMessage("msg-001", "conv-001", entity.ChatRoleUser, "3ヶ月後のフルマラソンに向けて段階的に鍛えたい", time.Now()),
 	}}
-	uc := NewPlanGoalUsecase(gen, messages, stubClock{now: time.Now()})
+	uc := NewPlanGoalUsecase(gen, messages, stubWorkspaceTaskRangeReader{}, stubClock{now: time.Now()})
 
 	got, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"})
 	if err != nil {
@@ -162,7 +162,7 @@ func TestPlanGoalUsecase_Execute_AppendsTrailingUserTurnWhenConversationEndsWith
 		entity.NewConversationMessage("msg-001", "conv-001", entity.ChatRoleUser, "3ヶ月後のフルマラソンで完走したい", time.Now()),
 		entity.NewConversationMessage("msg-002", "conv-001", entity.ChatRoleModel, "必達ですか、努力目標ですか？", time.Now()),
 	}}
-	uc := NewPlanGoalUsecase(gen, messages, stubClock{now: time.Now()})
+	uc := NewPlanGoalUsecase(gen, messages, stubWorkspaceTaskRangeReader{}, stubClock{now: time.Now()})
 
 	if _, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"}); err != nil {
 		t.Fatalf("Execute() returned unexpected error: %v", err)
@@ -189,7 +189,7 @@ func TestPlanGoalUsecase_Execute_InvalidDate(t *testing.T) {
 		]
 	}`}
 	messages := &spyMessageRepo{}
-	uc := NewPlanGoalUsecase(gen, messages, stubClock{now: time.Now()})
+	uc := NewPlanGoalUsecase(gen, messages, stubWorkspaceTaskRangeReader{}, stubClock{now: time.Now()})
 
 	_, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"})
 	if err == nil {
@@ -200,10 +200,50 @@ func TestPlanGoalUsecase_Execute_InvalidDate(t *testing.T) {
 func TestPlanGoalUsecase_Execute_NoGoals(t *testing.T) {
 	gen := &stubPlanGenerator{json: `{"goals": []}`}
 	messages := &spyMessageRepo{}
-	uc := NewPlanGoalUsecase(gen, messages, stubClock{now: time.Now()})
+	uc := NewPlanGoalUsecase(gen, messages, stubWorkspaceTaskRangeReader{}, stubClock{now: time.Now()})
 
 	_, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"})
 	if err == nil {
 		t.Fatal("Execute() with zero goals from the AI returned nil error, want non-nil (nothing usable to review/save)")
+	}
+}
+
+func TestPlanGoalUsecase_Execute_MentionsOtherGoalsBusyDays(t *testing.T) {
+	gen := &stubPlanGenerator{json: `{
+		"goals": [
+			{"title": "x", "detail": "x", "achievement_condition": "x", "end_date": "2026-09-30", "mode": "strict", "tasks": []}
+		]
+	}`}
+	messages := &spyMessageRepo{}
+	workspaceTasks := stubWorkspaceTaskRangeReader{tasks: []*entity.DailyTask{
+		entity.NewDailyTask("t1", "other-goal", time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC), "x", time.Now()),
+		entity.NewDailyTask("t2", "other-goal", time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC), "y", time.Now()),
+	}}
+	fixedNow := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
+	uc := NewPlanGoalUsecase(gen, messages, workspaceTasks, stubClock{now: fixedNow})
+
+	if _, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001", WorkspaceID: "workspace-001"}); err != nil {
+		t.Fatalf("Execute() returned unexpected error: %v", err)
+	}
+
+	if !strings.Contains(gen.capturedSystem, "2026-08-20") {
+		t.Errorf("system instruction = %q, want it to mention the busy day 2026-08-20", gen.capturedSystem)
+	}
+}
+
+func TestPlanGoalUsecase_Execute_NoWorkspaceIDSkipsBusyDaysLookup(t *testing.T) {
+	gen := &stubPlanGenerator{json: `{
+		"goals": [
+			{"title": "x", "detail": "x", "achievement_condition": "x", "end_date": "2026-09-30", "mode": "strict", "tasks": []}
+		]
+	}`}
+	messages := &spyMessageRepo{}
+	uc := NewPlanGoalUsecase(gen, messages, stubWorkspaceTaskRangeReader{}, stubClock{now: time.Now()})
+
+	// No WorkspaceID (e.g. an older/malformed request) shouldn't error out —
+	// it should just skip the busy-days context rather than querying with an
+	// empty workspace id.
+	if _, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"}); err != nil {
+		t.Fatalf("Execute() with no WorkspaceID returned unexpected error: %v", err)
 	}
 }
