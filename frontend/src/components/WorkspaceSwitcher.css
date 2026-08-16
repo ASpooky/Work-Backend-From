@@ -57,6 +57,12 @@
   overflow-y: auto;
 }
 
+.workspace-switcher-menu ul li:first-child {
+  border-bottom: 1px solid var(--sidebar-border);
+  padding-bottom: 0.2rem;
+  margin-bottom: 0.2rem;
+}
+
 .workspace-switcher-row {
   display: flex;
   align-items: center;

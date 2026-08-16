@@ -16,10 +16,11 @@ type RecurrenceMode = 'none' | 'interval' | 'weekly'
 type Props = {
   workspace: Workspace
   goals: Goal[]
+  isAllWorkspaces: boolean
   onCreated: () => void
 }
 
-function RegisterPage({ workspace, goals, onCreated }: Props) {
+function RegisterPage({ workspace, goals, isAllWorkspaces, onCreated }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   const [goalTitle, setGoalTitle] = useState('')
@@ -218,6 +219,9 @@ function RegisterPage({ workspace, goals, onCreated }: Props) {
 
       <section>
         <h2>新しい目標</h2>
+        {isAllWorkspaces ? (
+          <p className="hint">「すべて」表示では目標を作成できません。サイドバーで特定のワークスペースを選んでください。</p>
+        ) : (
         <form onSubmit={handleCreateGoal}>
           <label>
             タイトル
@@ -259,6 +263,7 @@ function RegisterPage({ workspace, goals, onCreated }: Props) {
           </label>
           <button type="submit">目標を作成</button>
         </form>
+        )}
       </section>
     </>
   )

@@ -18,7 +18,7 @@ function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onSwitch, onCreate, 
   const [creating, setCreating] = useState(false)
   const [createValue, setCreateValue] = useState('')
 
-  const active = workspaces.find((w) => w.id === activeWorkspaceId)
+  const active = activeWorkspaceId === '' ? { name: 'すべて' } : workspaces.find((w) => w.id === activeWorkspaceId)
 
   function startRename(w: Workspace) {
     setRenamingId(w.id)
@@ -63,6 +63,18 @@ function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onSwitch, onCreate, 
       {open && (
         <div className="workspace-switcher-menu">
           <ul>
+            <li>
+              <button
+                type="button"
+                className={`workspace-switcher-item${activeWorkspaceId === '' ? ' active' : ''}`}
+                onClick={() => {
+                  onSwitch('')
+                  setOpen(false)
+                }}
+              >
+                すべて
+              </button>
+            </li>
             {workspaces.map((w) => (
               <li key={w.id}>
                 {renamingId === w.id ? (

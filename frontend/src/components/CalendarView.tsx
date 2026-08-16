@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, type DailyTask, type GoalCalendar } from '../api'
+import { api, type DailyTask, type GoalCalendar, type Workspace } from '../api'
 import { startOfPeriod, endOfPeriod, shiftPeriod, formatISODate, formatPeriodLabel, eachDate } from '../date'
 import { toUserMessage } from '../errors'
 import WeekPathView from './WeekPathView'
@@ -7,10 +7,11 @@ import './CalendarView.css'
 
 type Props = {
   workspaceId: string
+  workspaces?: Workspace[]
   refreshKey?: number
 }
 
-function CalendarView({ workspaceId, refreshKey }: Props) {
+function CalendarView({ workspaceId, workspaces, refreshKey }: Props) {
   const [anchor, setAnchor] = useState(() => startOfPeriod('week', new Date()))
   const [dayTasks, setDayTasks] = useState<DailyTask[]>([])
   const [calendar, setCalendar] = useState<GoalCalendar[]>([])
@@ -36,6 +37,7 @@ function CalendarView({ workspaceId, refreshKey }: Props) {
   const to = endOfPeriod('week', anchor)
   const days = eachDate(from, to)
   const modeByGoalId = new Map(calendar.map((gc) => [gc.goal.id, gc.goal.mode]))
+  const workspaceNameById = new Map((workspaces ?? []).map((w) => [w.id, w.name]))
 
   async function handleToggleDone(task: DailyTask) {
     const nextDone = !task.done
@@ -76,7 +78,11 @@ function CalendarView({ workspaceId, refreshKey }: Props) {
 
       {error && <p className="error">{error}</p>}
 
-      <WeekPathView calendar={calendar} days={days} />
+      <WeekPathView
+        calendar={calendar}
+        days={days}
+        workspaceNameById={workspaceId === '' ? workspaceNameById : undefined}
+      />
 
       <div className="today-task-list">
         <h3>今日のタスク</h3>

@@ -40,6 +40,15 @@ export type GoalCalendar = {
   days: Record<string, DayEntry>
 }
 
+export type GoalStats = {
+  goal: Goal
+  scheduled_count: number
+  done_count: number
+  achievement_rate: number
+  postpone_count: number
+  days_remaining: number
+}
+
 export type Conversation = {
   id: string
   workspace_id: string
@@ -114,6 +123,17 @@ export const api = {
     end_date: string
     mode: 'strict' | 'want'
   }) => request<Goal>('/goals', { method: 'POST', body: JSON.stringify(body) }),
+  getGoal: (id: string) => request<GoalStats>(`/goals/${encodeURIComponent(id)}`),
+  updateGoal: (
+    id: string,
+    body: {
+      title: string
+      detail: string
+      achievement_condition: string
+      end_date: string
+      mode: 'strict' | 'want'
+    },
+  ) => request<{ id: string }>(`/goals/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
   listDailyTasks: (date: string) =>
     request<DailyTask[]>(`/daily-tasks?date=${encodeURIComponent(date)}`),
@@ -149,4 +169,6 @@ export const api = {
     }),
   aiPlan: (conversationId: string) =>
     request<Plan>('/ai/plan', { method: 'POST', body: JSON.stringify({ conversation_id: conversationId }) }),
+  summarizeGoal: (id: string) =>
+    request<{ summary: string }>(`/ai/goals/${encodeURIComponent(id)}/summary`, { method: 'POST' }),
 }

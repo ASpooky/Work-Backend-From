@@ -7,10 +7,11 @@ import './AIPlanPage.css'
 
 type Props = {
   workspace: Workspace
+  isAllWorkspaces: boolean
   onCreated: () => void
 }
 
-function AIPlanPage({ workspace, onCreated }: Props) {
+function AIPlanPage({ workspace, isAllWorkspaces, onCreated }: Props) {
   const navigate = useNavigate()
 
   const [aiEnabled, setAiEnabled] = useState<boolean | null>(null)
@@ -153,6 +154,15 @@ function AIPlanPage({ workspace, onCreated }: Props) {
       setError(toUserMessage(err))
       setCommitting(false)
     }
+  }
+
+  if (isAllWorkspaces) {
+    return (
+      <section>
+        <h2>AIと目標を作る</h2>
+        <p className="hint">「すべて」表示では利用できません。サイドバーで特定のワークスペースを選んでください。</p>
+      </section>
+    )
   }
 
   if (aiEnabled === false) {

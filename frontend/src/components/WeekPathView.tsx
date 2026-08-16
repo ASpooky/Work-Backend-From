@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { GoalCalendar, DayStatus } from '../api'
 import { formatISODate } from '../date'
 import './WeekPathView.css'
@@ -7,6 +8,7 @@ const WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土', '日']
 type Props = {
   calendar: GoalCalendar[]
   days: Date[]
+  workspaceNameById?: Map<string, string>
 }
 
 type NodeState = 'done' | 'missed' | 'today-pending' | 'upcoming' | 'no-task' | 'milestone'
@@ -20,7 +22,7 @@ function dayNodeState(status: DayStatus, isMilestone: boolean, dayKey: string, t
   return 'upcoming'
 }
 
-function WeekPathView({ calendar, days }: Props) {
+function WeekPathView({ calendar, days, workspaceNameById }: Props) {
   const dayKeys = days.map(formatISODate)
   const todayKey = formatISODate(new Date())
 
@@ -52,7 +54,13 @@ function WeekPathView({ calendar, days }: Props) {
             </thead>
             <tbody>
               {calendar.map((gc) => (
-                <GoalRow key={gc.goal.id} goalCalendar={gc} dayKeys={dayKeys} todayKey={todayKey} />
+                <GoalRow
+                  key={gc.goal.id}
+                  goalCalendar={gc}
+                  dayKeys={dayKeys}
+                  todayKey={todayKey}
+                  workspaceName={workspaceNameById?.get(gc.goal.workspace_id)}
+                />
               ))}
             </tbody>
           </table>
@@ -66,10 +74,12 @@ function GoalRow({
   goalCalendar,
   dayKeys,
   todayKey,
+  workspaceName,
 }: {
   goalCalendar: GoalCalendar
   dayKeys: string[]
   todayKey: string
+  workspaceName?: string
 }) {
   const goal = goalCalendar.goal
   const goalEndKey = goal.end_date.slice(0, 10)
@@ -77,7 +87,10 @@ function GoalRow({
   return (
     <tr>
       <th scope="row" className="week-path-goal-cell">
-        <div className="week-path-goal-title">{goal.title}</div>
+        <Link to={`/goals/${goal.id}`} className="week-path-goal-title">
+          {goal.title}
+        </Link>
+        {workspaceName && <div className="week-path-goal-workspace">{workspaceName}</div>}
         <div className="week-path-goal-sub">{goal.achievement_condition}</div>
       </th>
       {dayKeys.map((key, i) => {

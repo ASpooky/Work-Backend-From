@@ -1,0 +1,103 @@
+.goal-detail-back {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.goal-detail-back:hover {
+  color: var(--text-h);
+}
+
+.goal-detail-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.goal-detail-header h2 {
+  margin: 0;
+}
+
+.goal-detail-detail {
+  margin-top: 0.5rem;
+  color: var(--text);
+}
+
+.goal-detail-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0;
+}
+
+.goal-detail-facts > div {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.goal-detail-facts dt {
+  flex: 0 0 5.5rem;
+  color: var(--text);
+}
+
+.goal-detail-facts dd {
+  margin: 0;
+  color: var(--text-h);
+}
+
+.goal-detail-stats {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.stat-card {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: var(--code-bg);
+  border: 0.5px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+}
+
+.stat-value {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  color: var(--text);
+}
+
+.goal-detail-summary {
+  margin-top: 1.75rem;
+}
+
+.goal-detail-summary-text {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  color: var(--text-h);
+  line-height: 1.6;
+}
+
+.goal-detail-edit-form {
+  max-width: 24rem;
+}
+
+.goal-detail-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}

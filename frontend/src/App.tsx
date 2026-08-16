@@ -7,9 +7,15 @@ import AIPlanPage from './pages/AIPlanPage'
 import CalendarPage from './pages/CalendarPage'
 import RegisterPage from './pages/RegisterPage'
 import SettingsPage from './pages/SettingsPage'
+import GoalDetailPage from './pages/GoalDetailPage'
 import './App.css'
 
 const ACTIVE_WORKSPACE_KEY = 'goal-tracker:active-workspace'
+
+// A synthetic workspace representing "every workspace at once". Its id is the
+// empty string, which is exactly the sentinel the backend already treats as
+// "all workspaces" for /goals, /calendar and /daily-tasks.
+const ALL_WORKSPACES: Workspace = { id: '', user_id: '', name: 'すべて', created_at: '' }
 
 function App() {
   const location = useLocation()
@@ -21,7 +27,9 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
-  const workspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null
+  const workspace =
+    activeWorkspaceId === '' ? ALL_WORKSPACES : workspaces.find((w) => w.id === activeWorkspaceId) ?? null
+  const isAllWorkspaces = workspace?.id === ''
 
   function reloadWorkspaces() {
     api
@@ -29,6 +37,7 @@ function App() {
       .then((list) => {
         setWorkspaces(list)
         setActiveWorkspaceId((prev) => {
+          if (prev === '') return ''
           if (prev && list.some((w) => w.id === prev)) return prev
           const next = list[0]?.id ?? null
           if (next) localStorage.setItem(ACTIVE_WORKSPACE_KEY, next)
@@ -58,9 +67,10 @@ function App() {
   }
 
   async function handleCreateWorkspace(name: string) {
-    if (!workspace) return
+    const userId = workspaces[0]?.user_id
+    if (!userId) return
     try {
-      const created = await api.createWorkspace({ user_id: workspace.user_id, name })
+      const created = await api.createWorkspace({ user_id: userId, name })
       reloadWorkspaces()
       handleSwitchWorkspace(created.id)
     } catch (err) {
@@ -106,13 +116,33 @@ function App() {
 
         {workspace && (
           <Routes>
-            <Route path="/" element={<CalendarPage workspace={workspace} refreshKey={refreshKey} />} />
+            <Route
+              path="/"
+              element={
+                <CalendarPage
+                  workspace={workspace}
+                  workspaces={workspaces}
+                  refreshKey={refreshKey}
+                />
+              }
+            />
             <Route
               path="/register"
-              element={<RegisterPage workspace={workspace} goals={goals} onCreated={bumpRefresh} />}
+              element={
+                <RegisterPage
+                  workspace={workspace}
+                  goals={goals}
+                  isAllWorkspaces={isAllWorkspaces}
+                  onCreated={bumpRefresh}
+                />
+              }
             />
-            <Route path="/ai-plan" element={<AIPlanPage workspace={workspace} onCreated={bumpRefresh} />} />
+            <Route
+              path="/ai-plan"
+              element={<AIPlanPage workspace={workspace} isAllWorkspaces={isAllWorkspaces} onCreated={bumpRefresh} />}
+            />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/goals/:id" element={<GoalDetailPage onUpdated={bumpRefresh} />} />
           </Routes>
         )}
       </main>

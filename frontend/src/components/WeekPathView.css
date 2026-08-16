@@ -63,9 +63,28 @@
 }
 
 .week-path-goal-title {
+  display: block;
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--text-h);
+  text-decoration: none;
+}
+
+.week-path-goal-title:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.week-path-goal-workspace {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 
 .week-path-goal-sub {

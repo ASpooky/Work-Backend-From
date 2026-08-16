@@ -3,14 +3,15 @@ import type { Workspace } from '../api'
 
 type Props = {
   workspace: Workspace
+  workspaces: Workspace[]
   refreshKey: number
 }
 
-function CalendarPage({ workspace, refreshKey }: Props) {
+function CalendarPage({ workspace, workspaces, refreshKey }: Props) {
   return (
     <section>
       <h2>Calendar</h2>
-      <CalendarView workspaceId={workspace.id} refreshKey={refreshKey} />
+      <CalendarView workspaceId={workspace.id} workspaces={workspaces} refreshKey={refreshKey} />
     </section>
   )
 }
