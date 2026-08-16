@@ -1,4 +1,5 @@
 /app.db
 /app.db.bak-*
+/dev.db
 .env
 .env.*

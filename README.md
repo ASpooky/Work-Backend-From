@@ -64,7 +64,7 @@ Expects the backend at `http://localhost:8080`.
 go run ./cmd/seed
 ```
 
-Populates `app.db` with a few example goals and a plausible task history. Idempotent — safe to re-run.
+Populates `dev.db` (a separate database, never `app.db`) with a few example goals and a plausible task history. Idempotent — safe to re-run. Point it at a different file with `-db path`; the default deliberately isn't `app.db` so this can't accidentally seed real data.
 
 ## Screenshots
 

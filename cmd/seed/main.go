@@ -22,7 +22,7 @@ type seedGoal struct {
 }
 
 func main() {
-	dbPath := flag.String("db", "app.db", "path to the sqlite database file")
+	dbPath := flag.String("db", "dev.db", "path to the sqlite database file (defaults to a separate dev database, never the real app.db)")
 	flag.Parse()
 
 	db, err := sqlite.Open(*dbPath)
