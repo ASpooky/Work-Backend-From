@@ -34,6 +34,9 @@ func (u *GetGoalStatsUsecase) Execute(goalID string) (*entity.Goal, GoalStats, e
 	if err != nil {
 		return nil, GoalStats{}, err
 	}
+	if goal == nil {
+		return nil, GoalStats{}, nil
+	}
 
 	now := truncateToDate(u.clock.Now())
 

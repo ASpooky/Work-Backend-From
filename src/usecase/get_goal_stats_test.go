@@ -59,6 +59,20 @@ func TestGetGoalStatsUsecase_Execute(t *testing.T) {
 	}
 }
 
+func TestGetGoalStatsUsecase_Execute_GoalNotFound(t *testing.T) {
+	goals := stubSingleGoalReader{goal: nil}
+	tasks := stubDailyTaskRangeReader{tasksByGoal: map[string][]*entity.DailyTask{}}
+
+	u := NewGetGoalStatsUsecase(goals, tasks, stubClock{now: time.Now()})
+	gotGoal, _, err := u.Execute("missing")
+	if err != nil {
+		t.Fatalf("Execute() returned unexpected error: %v", err)
+	}
+	if gotGoal != nil {
+		t.Errorf("Execute() goal = %v, want nil for a missing goal", gotGoal)
+	}
+}
+
 func TestGetGoalStatsUsecase_Execute_NoScheduledTasks(t *testing.T) {
 	goal := entity.NewGoal("goal-001", "workspace-001", "Run", "detail", "cond", time.Now().AddDate(0, 0, 10), entity.ModeStrict, time.Now())
 	goals := stubSingleGoalReader{goal: goal}
