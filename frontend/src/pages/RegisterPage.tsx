@@ -27,7 +27,7 @@ function RegisterPage({ workspace, goals, isAllWorkspaces, onCreated }: Props) {
   const [goalDetail, setGoalDetail] = useState('')
   const [goalCondition, setGoalCondition] = useState('')
   const [goalEndDate, setGoalEndDate] = useState('')
-  const [goalMode, setGoalMode] = useState<'strict' | 'want'>('strict')
+  const [goalMode, setGoalMode] = useState<'strict' | 'want'>('want')
 
   const [taskGoalId, setTaskGoalId] = useState(() => localStorage.getItem('goal-tracker:last-task-goal') ?? '')
   const [goalFilter, setGoalFilter] = useState('')

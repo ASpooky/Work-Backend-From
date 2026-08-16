@@ -38,6 +38,10 @@ function CalendarView({ workspaceId, workspaces, refreshKey }: Props) {
   const days = eachDate(from, to)
   const modeByGoalId = new Map(calendar.map((gc) => [gc.goal.id, gc.goal.mode]))
   const workspaceNameById = new Map((workspaces ?? []).map((w) => [w.id, w.name]))
+  // Incomplete tasks first so you can see what's left without hunting through
+  // done ones; stable within each group (no re-sort beyond done/not-done).
+  const sortedDayTasks = [...dayTasks].sort((a, b) => Number(a.done) - Number(b.done))
+  const doneCount = dayTasks.filter((t) => t.done).length
 
   async function handleToggleDone(task: DailyTask) {
     const nextDone = !task.done
@@ -85,9 +89,16 @@ function CalendarView({ workspaceId, workspaces, refreshKey }: Props) {
       />
 
       <div className="today-task-list">
-        <h3>今日のタスク</h3>
+        <div className="today-task-list-header">
+          <h3>今日のタスク</h3>
+          {dayTasks.length > 0 && (
+            <span className="today-task-count">
+              {doneCount}/{dayTasks.length}
+            </span>
+          )}
+        </div>
         <ul className="task-list">
-          {dayTasks.map((task) => (
+          {sortedDayTasks.map((task) => (
             <li key={task.id}>
               <label className="task-item">
                 <input type="checkbox" checked={task.done} onChange={() => handleToggleDone(task)} />

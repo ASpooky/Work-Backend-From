@@ -428,6 +428,9 @@ function GoalDetailPage({ onUpdated }: Props) {
               <dd>
                 {goal.end_date.slice(0, 10)}（
                 {stats.days_remaining >= 0 ? `あと${stats.days_remaining}日` : '期限切れ'}）
+                {stats.postpone_count > 0 && (
+                  <span className="goal-detail-facts-note">先延ばし後の現在の期限です</span>
+                )}
               </dd>
             </div>
             <div>
@@ -440,6 +443,7 @@ function GoalDetailPage({ onUpdated }: Props) {
             <div className="stat-card">
               <span className="stat-value">{achievementPercent}%</span>
               <span className="stat-label">達成率</span>
+              <span className="stat-note">予定日を過ぎたタスクのみ集計</span>
             </div>
             <div className="stat-card">
               <span className="stat-value">

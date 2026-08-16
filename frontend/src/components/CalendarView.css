@@ -26,11 +26,25 @@
   margin-top: 1rem;
 }
 
+.today-task-list-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+}
+
 .today-task-list h3 {
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--text);
-  margin: 0 0 0.5rem;
+  margin: 0;
+}
+
+.today-task-count {
+  font-size: 0.75rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .task-item {
