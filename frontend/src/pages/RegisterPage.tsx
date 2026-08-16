@@ -30,6 +30,7 @@ function RegisterPage({ workspace, goals, isAllWorkspaces, onCreated }: Props) {
   const [goalMode, setGoalMode] = useState<'strict' | 'want'>('strict')
 
   const [taskGoalId, setTaskGoalId] = useState(() => localStorage.getItem('goal-tracker:last-task-goal') ?? '')
+  const [goalFilter, setGoalFilter] = useState('')
   const [taskContent, setTaskContent] = useState('')
   const [recurrenceMode, setRecurrenceMode] = useState<RecurrenceMode>('none')
   const [intervalDays, setIntervalDays] = useState(1)
@@ -44,6 +45,12 @@ function RegisterPage({ workspace, goals, isAllWorkspaces, onCreated }: Props) {
     const goal = goals.find((g) => g.id === taskGoalId)
     if (goal) setEndDate(goal.end_date.slice(0, 10))
   }, [taskGoalId, goals, endDate])
+
+  // Keep the currently-selected goal visible even if it doesn't match the
+  // filter, so typing never silently loses the user's existing selection.
+  const filteredGoals = goals.filter(
+    (goal) => goal.id === taskGoalId || goal.title.toLowerCase().includes(goalFilter.trim().toLowerCase()),
+  )
 
   function toggleWeekday(day: number) {
     setWeekdays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()))
@@ -108,11 +115,22 @@ function RegisterPage({ workspace, goals, isAllWorkspaces, onCreated }: Props) {
       <section>
         <h2>タスクを追加</h2>
         <form onSubmit={handleCreateTask}>
+          {goals.length > 6 && (
+            <label>
+              目標を検索
+              <input
+                type="text"
+                placeholder="目標名で絞り込み"
+                value={goalFilter}
+                onChange={(e) => setGoalFilter(e.target.value)}
+              />
+            </label>
+          )}
           <label>
             目標
             <select value={taskGoalId} onChange={(e) => setTaskGoalId(e.target.value)} required>
               <option value="">目標を選択</option>
-              {goals.map((goal) => {
+              {filteredGoals.map((goal) => {
                 const left = daysUntil(goal.end_date)
                 return (
                   <option key={goal.id} value={goal.id}>
