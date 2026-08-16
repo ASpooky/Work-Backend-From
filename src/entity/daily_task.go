@@ -3,12 +3,13 @@ package entity
 import "time"
 
 type DailyTask struct {
-	ID        string    `json:"id"`
-	GoalID    string    `json:"goal_id"`
-	Date      time.Time `json:"date"`
-	Content   string    `json:"content"`
-	Done      bool      `json:"done"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          string     `json:"id"`
+	GoalID      string     `json:"goal_id"`
+	Date        time.Time  `json:"date"`
+	Content     string     `json:"content"`
+	Done        bool       `json:"done"`
+	CreatedAt   time.Time  `json:"created_at"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
 
 func NewDailyTask(id, goalID string, date time.Time, content string, createdAt time.Time) *DailyTask {

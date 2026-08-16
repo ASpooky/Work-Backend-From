@@ -21,15 +21,16 @@ func (r *DailyTaskRepository) Save(task *entity.DailyTask) error {
 		done = 1
 	}
 	_, err := r.db.Exec(
-		`INSERT INTO daily_tasks (id, goal_id, date, content, done, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO daily_tasks (id, goal_id, date, content, done, created_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		task.ID, task.GoalID, task.Date.Format(dateLayout), task.Content, done, task.CreatedAt.Format(time.RFC3339),
+		nullableTimeString(task.CompletedAt),
 	)
 	return err
 }
 
 func (r *DailyTaskRepository) FindByGoalIDAndDateRange(goalID string, from, to time.Time) ([]*entity.DailyTask, error) {
 	rows, err := r.db.Query(
-		`SELECT id, goal_id, date, content, done, created_at FROM daily_tasks
+		`SELECT id, goal_id, date, content, done, created_at, completed_at FROM daily_tasks
 		 WHERE goal_id = ? AND date >= ? AND date <= ? ORDER BY date`,
 		goalID, from.Format(dateLayout), to.Format(dateLayout),
 	)
@@ -38,36 +39,21 @@ func (r *DailyTaskRepository) FindByGoalIDAndDateRange(goalID string, from, to t
 	}
 	defer rows.Close()
 
-	tasks := []*entity.DailyTask{}
-	for rows.Next() {
-		var id, gID, dateStr, content, createdAt string
-		var done int
-		if err := rows.Scan(&id, &gID, &dateStr, &content, &done, &createdAt); err != nil {
-			return nil, err
-		}
-
-		parsedDate, err := time.Parse(dateLayout, dateStr)
-		if err != nil {
-			return nil, err
-		}
-		parsedCreatedAt, err := time.Parse(time.RFC3339, createdAt)
-		if err != nil {
-			return nil, err
-		}
-
-		task := entity.NewDailyTask(id, gID, parsedDate, content, parsedCreatedAt)
-		task.Done = done != 0
-		tasks = append(tasks, task)
-	}
-	return tasks, rows.Err()
+	return scanDailyTasks(rows)
 }
 
-func (r *DailyTaskRepository) UpdateDone(id string, done bool) error {
+// UpdateDone records not just whether a task is done but when: completedAt
+// is nil when marking a task not-done, clearing any previous timestamp
+// rather than leaving it stale.
+func (r *DailyTaskRepository) UpdateDone(id string, done bool, completedAt *time.Time) error {
 	doneInt := 0
 	if done {
 		doneInt = 1
 	}
-	_, err := r.db.Exec(`UPDATE daily_tasks SET done = ? WHERE id = ?`, doneInt, id)
+	_, err := r.db.Exec(
+		`UPDATE daily_tasks SET done = ?, completed_at = ? WHERE id = ?`,
+		doneInt, nullableTimeString(completedAt), id,
+	)
 	return err
 }
 
@@ -75,33 +61,17 @@ func (r *DailyTaskRepository) UpdateDone(id string, done bool) error {
 // a date strictly before `before`, or nil if there is none.
 func (r *DailyTaskRepository) FindOldestPendingBefore(goalID string, before time.Time) (*entity.DailyTask, error) {
 	row := r.db.QueryRow(
-		`SELECT id, goal_id, date, content, done, created_at FROM daily_tasks
+		`SELECT id, goal_id, date, content, done, created_at, completed_at FROM daily_tasks
 		 WHERE goal_id = ? AND done = 0 AND date < ?
 		 ORDER BY date ASC LIMIT 1`,
 		goalID, before.Format(dateLayout),
 	)
 
-	var id, gID, dateStr, content, createdAt string
-	var done int
-	if err := row.Scan(&id, &gID, &dateStr, &content, &done, &createdAt); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
+	task, err := scanDailyTask(row)
+	if err == sql.ErrNoRows {
+		return nil, nil
 	}
-
-	parsedDate, err := time.Parse(dateLayout, dateStr)
-	if err != nil {
-		return nil, err
-	}
-	parsedCreatedAt, err := time.Parse(time.RFC3339, createdAt)
-	if err != nil {
-		return nil, err
-	}
-
-	task := entity.NewDailyTask(id, gID, parsedDate, content, parsedCreatedAt)
-	task.Done = done != 0
-	return task, nil
+	return task, err
 }
 
 // ShiftPendingForward pushes every not-done task for goalID with a date on
@@ -121,7 +91,7 @@ func (r *DailyTaskRepository) ShiftPendingForward(goalID string, fromDate time.T
 // boundaries entirely.
 func (r *DailyTaskRepository) FindByDateAndWorkspaceID(date time.Time, workspaceID string) ([]*entity.DailyTask, error) {
 	rows, err := r.db.Query(
-		`SELECT dt.id, dt.goal_id, dt.date, dt.content, dt.done, dt.created_at
+		`SELECT dt.id, dt.goal_id, dt.date, dt.content, dt.done, dt.created_at, dt.completed_at
 		 FROM daily_tasks dt
 		 JOIN goals g ON g.id = dt.goal_id
 		 WHERE dt.date = ? AND g.workspace_id = ?
@@ -138,7 +108,7 @@ func (r *DailyTaskRepository) FindByDateAndWorkspaceID(date time.Time, workspace
 
 func (r *DailyTaskRepository) FindByDate(date time.Time) ([]*entity.DailyTask, error) {
 	rows, err := r.db.Query(
-		`SELECT id, goal_id, date, content, done, created_at FROM daily_tasks WHERE date = ? ORDER BY created_at`,
+		`SELECT id, goal_id, date, content, done, created_at, completed_at FROM daily_tasks WHERE date = ? ORDER BY created_at`,
 		date.Format(dateLayout),
 	)
 	if err != nil {
@@ -149,26 +119,49 @@ func (r *DailyTaskRepository) FindByDate(date time.Time) ([]*entity.DailyTask, e
 	return scanDailyTasks(rows)
 }
 
+func nullableTimeString(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return t.Format(time.RFC3339)
+}
+
+func scanDailyTask(row rowScanner) (*entity.DailyTask, error) {
+	var id, goalID, dateStr, content, createdAt string
+	var done int
+	var completedAt sql.NullString
+	if err := row.Scan(&id, &goalID, &dateStr, &content, &done, &createdAt, &completedAt); err != nil {
+		return nil, err
+	}
+
+	parsedDate, err := time.Parse(dateLayout, dateStr)
+	if err != nil {
+		return nil, err
+	}
+	parsedCreatedAt, err := time.Parse(time.RFC3339, createdAt)
+	if err != nil {
+		return nil, err
+	}
+
+	task := entity.NewDailyTask(id, goalID, parsedDate, content, parsedCreatedAt)
+	task.Done = done != 0
+	if completedAt.Valid {
+		parsedCompletedAt, err := time.Parse(time.RFC3339, completedAt.String)
+		if err != nil {
+			return nil, err
+		}
+		task.CompletedAt = &parsedCompletedAt
+	}
+	return task, nil
+}
+
 func scanDailyTasks(rows *sql.Rows) ([]*entity.DailyTask, error) {
 	tasks := []*entity.DailyTask{}
 	for rows.Next() {
-		var id, goalID, dateStr, content, createdAt string
-		var done int
-		if err := rows.Scan(&id, &goalID, &dateStr, &content, &done, &createdAt); err != nil {
-			return nil, err
-		}
-
-		parsedDate, err := time.Parse(dateLayout, dateStr)
+		task, err := scanDailyTask(rows)
 		if err != nil {
 			return nil, err
 		}
-		parsedCreatedAt, err := time.Parse(time.RFC3339, createdAt)
-		if err != nil {
-			return nil, err
-		}
-
-		task := entity.NewDailyTask(id, goalID, parsedDate, content, parsedCreatedAt)
-		task.Done = done != 0
 		tasks = append(tasks, task)
 	}
 	return tasks, rows.Err()

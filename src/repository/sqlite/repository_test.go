@@ -349,7 +349,8 @@ func TestDailyTaskRepository_UpdateDone(t *testing.T) {
 		t.Fatalf("Save() returned unexpected error: %v", err)
 	}
 
-	if err := repo.UpdateDone(task.ID, true); err != nil {
+	completedAt := time.Date(2026, 8, 17, 9, 30, 0, 0, time.UTC)
+	if err := repo.UpdateDone(task.ID, true, &completedAt); err != nil {
 		t.Fatalf("UpdateDone() returned unexpected error: %v", err)
 	}
 
@@ -359,6 +360,23 @@ func TestDailyTaskRepository_UpdateDone(t *testing.T) {
 	}
 	if len(got) != 1 || !got[0].Done {
 		t.Fatalf("FindByDate() after UpdateDone = %+v, want Done=true", got)
+	}
+	if got[0].CompletedAt == nil || !got[0].CompletedAt.Equal(completedAt) {
+		t.Errorf("CompletedAt = %v, want %v", got[0].CompletedAt, completedAt)
+	}
+
+	if err := repo.UpdateDone(task.ID, false, nil); err != nil {
+		t.Fatalf("UpdateDone() (clearing) returned unexpected error: %v", err)
+	}
+	gotAfterClear, err := repo.FindByDate(date)
+	if err != nil {
+		t.Fatalf("FindByDate() returned unexpected error: %v", err)
+	}
+	if len(gotAfterClear) != 1 || gotAfterClear[0].Done {
+		t.Fatalf("FindByDate() after clearing = %+v, want Done=false", gotAfterClear)
+	}
+	if gotAfterClear[0].CompletedAt != nil {
+		t.Errorf("CompletedAt after clearing = %v, want nil", gotAfterClear[0].CompletedAt)
 	}
 }
 

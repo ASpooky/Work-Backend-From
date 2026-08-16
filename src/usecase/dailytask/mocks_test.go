@@ -29,6 +29,7 @@ type mockRepository struct {
 	capturedWorkspaceID      string
 	updatedID                string
 	updatedDone              bool
+	updatedCompletedAt       *time.Time
 }
 
 func (m *mockRepository) Save(task *entity.DailyTask) error {
@@ -45,9 +46,10 @@ func (m *mockRepository) FindByDateAndWorkspaceID(date time.Time, workspaceID st
 	return m.findByDateAndWorkspaceID, nil
 }
 
-func (m *mockRepository) UpdateDone(id string, done bool) error {
+func (m *mockRepository) UpdateDone(id string, done bool, completedAt *time.Time) error {
 	m.updatedID = id
 	m.updatedDone = done
+	m.updatedCompletedAt = completedAt
 	return nil
 }
 

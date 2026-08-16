@@ -49,7 +49,7 @@ func main() {
 	createDailyTask := dailytask.NewCreateDailyTaskUsecase(dailyTaskRepo, ids, clk)
 	createRecurringDailyTasks := dailytask.NewCreateRecurringDailyTasksUsecase(dailyTaskRepo, ids, clk)
 	listDailyTasks := dailytask.NewListDailyTasksUsecase(dailyTaskRepo)
-	updateDailyTaskDone := dailytask.NewUpdateDailyTaskDoneUsecase(dailyTaskRepo)
+	updateDailyTaskDone := dailytask.NewUpdateDailyTaskDoneUsecase(dailyTaskRepo, clk)
 	getCalendar := usecase.NewGetCalendarUsecase(goalRepo, dailyTaskRepo)
 
 	if err := ensureDefaultWorkspace(createWorkspace, listWorkspaces); err != nil {

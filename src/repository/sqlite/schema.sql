@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS daily_tasks (
     date TEXT NOT NULL,
     content TEXT NOT NULL,
     done INTEGER NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    completed_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS conversations (
