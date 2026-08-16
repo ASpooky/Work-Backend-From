@@ -24,6 +24,22 @@ func Open(path string) (*sql.DB, error) {
 		return nil, err
 	}
 
+	// SQLite allows only one writer at a time; database/sql's default pool
+	// hands out multiple connections to concurrent goroutines, and a second
+	// writer trying to go through its own connection at the same moment
+	// gets an immediate "database is locked" (SQLITE_BUSY) instead of
+	// waiting its turn. A single shared connection serializes all access
+	// through this *sql.DB, which is the simplest correct fix for a
+	// single-user app with no meaningful concurrent-write throughput needs.
+	// busy_timeout is set too, as defense-in-depth against a second,
+	// separate process (e.g. cmd/seed run manually against the same file
+	// while the server is up) still holding the file lock briefly.
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
+		db.Close()
+		return nil, err
+	}
+
 	if err := migrate(db); err != nil {
 		db.Close()
 		return nil, err

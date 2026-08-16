@@ -15,6 +15,7 @@ type Props = {
 function GoalsListPage({ workspace, workspaces, refreshKey, onDeleted }: Props) {
   const [goals, setGoals] = useState<Goal[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [reordering, setReordering] = useState(false)
 
   useEffect(() => {
     api.listGoals(workspace.id).then(setGoals).catch((err) => setError(toUserMessage(err)))
@@ -38,12 +39,14 @@ function GoalsListPage({ workspace, workspaces, refreshKey, onDeleted }: Props) 
   // self-heals ordering over time even for goals that still share the
   // migration default priority of 0 (only ties on created_at until touched).
   async function handleMove(index: number, direction: -1 | 1) {
+    if (reordering) return
     const targetIndex = index + direction
     if (targetIndex < 0 || targetIndex >= goals.length) return
 
     const current = goals[index]
     const target = goals[targetIndex]
 
+    setReordering(true)
     try {
       await Promise.all([api.reorderGoal(current.id, targetIndex), api.reorderGoal(target.id, index)])
       setGoals((prev) => {
@@ -54,6 +57,8 @@ function GoalsListPage({ workspace, workspaces, refreshKey, onDeleted }: Props) 
       })
     } catch (err) {
       setError(toUserMessage(err))
+    } finally {
+      setReordering(false)
     }
   }
 
@@ -75,7 +80,7 @@ function GoalsListPage({ workspace, workspaces, refreshKey, onDeleted }: Props) 
                   <button
                     type="button"
                     onClick={() => handleMove(index, -1)}
-                    disabled={index === 0}
+                    disabled={index === 0 || reordering}
                     aria-label={`${goal.title}を上に移動`}
                   >
                     ▲
@@ -83,7 +88,7 @@ function GoalsListPage({ workspace, workspaces, refreshKey, onDeleted }: Props) 
                   <button
                     type="button"
                     onClick={() => handleMove(index, 1)}
-                    disabled={index === goals.length - 1}
+                    disabled={index === goals.length - 1 || reordering}
                     aria-label={`${goal.title}を下に移動`}
                   >
                     ▼

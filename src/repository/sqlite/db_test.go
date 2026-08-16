@@ -2,11 +2,64 @@ package sqlite
 
 import (
 	"database/sql"
+	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	_ "modernc.org/sqlite"
 )
+
+// TestOpen_SurvivesConcurrentWrites reproduces a real bug: the frontend's
+// goal-reorder feature fires two concurrent PATCH requests per swap, and a
+// user clicking ▲/▼ a few times in a row stacks up several more on top of
+// that. sql.Open with no MaxOpenConns/busy_timeout lets Go hand out multiple
+// connections to the same SQLite file, and a second concurrent writer gets
+// an immediate "database is locked" (SQLITE_BUSY) instead of waiting its
+// turn — reproduced live via concurrent curl PATCH /goals/{id}/priority
+// calls before this fix. Open() must configure the pool so concurrent
+// writers queue instead of failing.
+func TestOpen_SurvivesConcurrentWrites(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "concurrent.db")
+
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	if _, err := db.Exec(
+		`INSERT INTO workspaces (id, user_id, name, created_at) VALUES ('w1', ?, 'private', '2026-01-01T00:00:00Z')`,
+		DefaultUserID,
+	); err != nil {
+		t.Fatalf("failed to seed workspace: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO goals (id, workspace_id, title, detail, achievement_condition, end_date, mode, status, created_at)
+		 VALUES ('g1', 'w1', 't', 'd', 'c', '2026-01-01', 'strict', 'active', '2026-01-01T00:00:00Z')`,
+	); err != nil {
+		t.Fatalf("failed to seed goal: %v", err)
+	}
+
+	const concurrency = 20
+	var wg sync.WaitGroup
+	errs := make(chan error, concurrency)
+	for i := range concurrency {
+		wg.Add(1)
+		go func(priority int) {
+			defer wg.Done()
+			if _, err := db.Exec(`UPDATE goals SET priority = ? WHERE id = 'g1'`, priority); err != nil {
+				errs <- fmt.Errorf("write %d: %w", priority, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		t.Errorf("concurrent write failed: %v", err)
+	}
+}
 
 // TestOpen_MigratesLegacyGoalsTableMissingPostponeCount simulates a
 // pre-existing app.db created before postpone_count existed: CREATE TABLE
