@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { api, type Goal, type Workspace } from './api'
 import Sidebar from './components/Sidebar'
 import AIPlanPage from './pages/AIPlanPage'
@@ -9,6 +9,7 @@ import SettingsPage from './pages/SettingsPage'
 import './App.css'
 
 function App() {
+  const location = useLocation()
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [goals, setGoals] = useState<Goal[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +35,7 @@ function App() {
     <div className="app-shell">
       {workspace && <Sidebar workspaceName={workspace.name} />}
 
-      <main className="app">
+      <main className={`app${location.pathname === '/ai-plan' ? ' app-wide' : ''}`}>
         <h1>Goal Tracker</h1>
         {error && <p className="error">{error}</p>}
         {!workspace && <p>Loading workspace...</p>}

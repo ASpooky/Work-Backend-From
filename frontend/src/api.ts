@@ -40,9 +40,20 @@ export type GoalCalendar = {
   days: Record<string, DayEntry>
 }
 
-export type ChatMessage = {
+export type Conversation = {
+  id: string
+  workspace_id: string
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export type ConversationMessage = {
+  id: string
+  conversation_id: string
   role: 'user' | 'model'
   content: string
+  created_at: string
 }
 
 export type PlannedGoal = {
@@ -117,8 +128,15 @@ export const api = {
     ),
 
   aiStatus: () => request<{ enabled: boolean }>('/ai/status'),
-  aiChat: (messages: ChatMessage[]) =>
-    request<{ reply: string }>('/ai/chat', { method: 'POST', body: JSON.stringify({ messages }) }),
-  aiPlan: (messages: ChatMessage[]) =>
-    request<Plan>('/ai/plan', { method: 'POST', body: JSON.stringify({ messages }) }),
+  listConversations: (workspaceId: string) =>
+    request<Conversation[]>(`/ai/conversations?workspace_id=${encodeURIComponent(workspaceId)}`),
+  getConversation: (id: string) =>
+    request<ConversationMessage[]>(`/ai/conversations/${encodeURIComponent(id)}/messages`),
+  sendChatMessage: (workspaceId: string, conversationId: string | null, content: string) =>
+    request<{ conversation_id: string; reply: string }>('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({ workspace_id: workspaceId, conversation_id: conversationId ?? '', content }),
+    }),
+  aiPlan: (conversationId: string) =>
+    request<Plan>('/ai/plan', { method: 'POST', body: JSON.stringify({ conversation_id: conversationId }) }),
 }

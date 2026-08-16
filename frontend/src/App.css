@@ -13,6 +13,11 @@
   text-align: left;
 }
 
+.app.app-wide {
+  max-width: 68rem;
+  width: 100%;
+}
+
 .app section {
   margin-top: 2rem;
 }
