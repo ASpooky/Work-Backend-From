@@ -33,15 +33,24 @@ type stubDailyTaskRangeReader struct {
 	tasksByGoal map[string][]*entity.DailyTask
 }
 
+// FindByGoalIDAndDateRange actually filters by [from, to] (inclusive), like
+// the real DailyTaskRepository — a stub that ignored the bounds would make
+// range-dependent behavior (e.g. "hasn't started yet" filtering) untestable.
 func (s stubDailyTaskRangeReader) FindByGoalIDAndDateRange(goalID string, from, to time.Time) ([]*entity.DailyTask, error) {
-	return s.tasksByGoal[goalID], nil
+	matched := []*entity.DailyTask{}
+	for _, t := range s.tasksByGoal[goalID] {
+		if !t.Date.Before(from) && !t.Date.After(to) {
+			matched = append(matched, t)
+		}
+	}
+	return matched, nil
 }
 
 func TestGetCalendarUsecase_Execute(t *testing.T) {
-	goalA := entity.NewGoal("goal-001", "workspace-001", "Run", "detail", "cond", time.Now(), entity.ModeStrict, time.Now())
-
 	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+
+	goalA := entity.NewGoal("goal-001", "workspace-001", "Run", "detail", "cond", time.Now(), entity.ModeStrict, from)
 
 	doneTask := entity.NewDailyTask("task-001", goalA.ID, from, "Run 5km", time.Now())
 	doneTask.Done = true
@@ -88,14 +97,17 @@ func TestGetCalendarUsecase_Execute(t *testing.T) {
 }
 
 func TestGetCalendarUsecase_Execute_AllWorkspaces(t *testing.T) {
-	goalA := entity.NewGoal("goal-a", "workspace-a", "Aのgoal", "detail", "cond", time.Now(), entity.ModeStrict, time.Now())
-	goalB := entity.NewGoal("goal-b", "workspace-b", "Bのgoal", "detail", "cond", time.Now(), entity.ModeStrict, time.Now())
-
 	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 
+	goalA := entity.NewGoal("goal-a", "workspace-a", "Aのgoal", "detail", "cond", time.Now(), entity.ModeStrict, from)
+	goalB := entity.NewGoal("goal-b", "workspace-b", "Bのgoal", "detail", "cond", time.Now(), entity.ModeStrict, from)
+
 	goals := stubGoalReader{goals: []*entity.Goal{goalA, goalB}}
-	tasks := stubDailyTaskRangeReader{tasksByGoal: map[string][]*entity.DailyTask{}}
+	tasks := stubDailyTaskRangeReader{tasksByGoal: map[string][]*entity.DailyTask{
+		goalA.ID: {entity.NewDailyTask("task-a", goalA.ID, from, "x", time.Now())},
+		goalB.ID: {entity.NewDailyTask("task-b", goalB.ID, from, "x", time.Now())},
+	}}
 
 	u := NewGetCalendarUsecase(goals, tasks)
 	got, err := u.Execute(GetCalendarInput{WorkspaceID: "", From: from, To: to})
@@ -105,5 +117,38 @@ func TestGetCalendarUsecase_Execute_AllWorkspaces(t *testing.T) {
 
 	if len(got) != 2 {
 		t.Fatalf("Execute() with empty WorkspaceID returned %d goal calendars, want 2 (across all workspaces)", len(got))
+	}
+}
+
+// TestGetCalendarUsecase_Execute_HidesGoalsThatHaventStartedYet covers a gap
+// exposed by multi-phase AI planning: creating goal phases 1-4 as a batch
+// leaves phases 2-4 with tasks entirely in the future relative to "today".
+// Those shouldn't clutter this week's calendar until they're actually
+// relevant — a goal with zero tasks on or before the visible week's end
+// hasn't started yet and should be excluded from the result entirely.
+func TestGetCalendarUsecase_Execute_HidesGoalsThatHaventStartedYet(t *testing.T) {
+	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+
+	started := entity.NewGoal("goal-started", "workspace-001", "土台作り期", "detail", "cond", time.Now(), entity.ModeStrict, from)
+	notStarted := entity.NewGoal("goal-not-started", "workspace-001", "追い込み期", "detail", "cond", time.Now(), entity.ModeStrict, from)
+
+	goals := stubGoalReader{goals: []*entity.Goal{started, notStarted}}
+	tasks := stubDailyTaskRangeReader{tasksByGoal: map[string][]*entity.DailyTask{
+		started.ID:    {entity.NewDailyTask("task-started", started.ID, from, "土台ジョグ", time.Now())},
+		notStarted.ID: {entity.NewDailyTask("task-future", notStarted.ID, to.AddDate(0, 1, 0), "ロング走", time.Now())},
+	}}
+
+	u := NewGetCalendarUsecase(goals, tasks)
+	got, err := u.Execute(GetCalendarInput{WorkspaceID: "workspace-001", From: from, To: to})
+	if err != nil {
+		t.Fatalf("Execute() returned unexpected error: %v", err)
+	}
+
+	if len(got) != 1 {
+		t.Fatalf("Execute() returned %d goal calendars, want 1 (the not-yet-started phase excluded)", len(got))
+	}
+	if got[0].Goal.ID != started.ID {
+		t.Errorf("Execute()[0].Goal.ID = %v, want %v", got[0].Goal.ID, started.ID)
 	}
 }

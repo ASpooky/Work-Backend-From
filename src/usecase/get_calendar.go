@@ -64,13 +64,24 @@ func (u *GetCalendarUsecase) Execute(input GetCalendarInput) ([]GoalCalendar, er
 
 	result := make([]GoalCalendar, 0, len(goals))
 	for _, g := range goals {
-		tasks, err := u.tasks.FindByGoalIDAndDateRange(g.ID, input.From, input.To)
+		// Query from the goal's own creation through the end of the visible
+		// week rather than just [From, To]: a goal with zero tasks anywhere
+		// up to and including this week hasn't started yet (e.g. a later
+		// phase from a multi-phase AI plan whose tasks are months out) and
+		// shouldn't clutter the calendar until it's actually relevant.
+		tasks, err := u.tasks.FindByGoalIDAndDateRange(g.ID, g.CreatedAt, input.To)
 		if err != nil {
 			return nil, err
+		}
+		if len(tasks) == 0 {
+			continue
 		}
 
 		byDate := make(map[string][]*entity.DailyTask)
 		for _, t := range tasks {
+			if t.Date.Before(input.From) {
+				continue
+			}
 			key := t.Date.Format(calendarDateLayout)
 			byDate[key] = append(byDate[key], t)
 		}
