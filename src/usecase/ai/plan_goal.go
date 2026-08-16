@@ -58,8 +58,12 @@ type PlanGenerator interface {
 	GenerateJSON(ctx context.Context, systemInstruction string, messages []entity.ChatMessage, schema map[string]any) (string, error)
 }
 
+type ConversationMessageReader interface {
+	FindByConversationID(conversationID string) ([]*entity.ConversationMessage, error)
+}
+
 type PlanGoalInput struct {
-	Messages []entity.ChatMessage
+	ConversationID string
 }
 
 type PlannedGoal struct {
@@ -105,25 +109,32 @@ type planWire struct {
 }
 
 type PlanGoalUsecase struct {
-	ai    PlanGenerator
-	clock usecase.Clock
+	ai       PlanGenerator
+	messages ConversationMessageReader
+	clock    usecase.Clock
 }
 
-func NewPlanGoalUsecase(ai PlanGenerator, clock usecase.Clock) *PlanGoalUsecase {
-	return &PlanGoalUsecase{ai: ai, clock: clock}
+func NewPlanGoalUsecase(ai PlanGenerator, messages ConversationMessageReader, clock usecase.Clock) *PlanGoalUsecase {
+	return &PlanGoalUsecase{ai: ai, messages: messages, clock: clock}
 }
 
 func (u *PlanGoalUsecase) Execute(ctx context.Context, input PlanGoalInput) (Plan, error) {
+	history, err := u.messages.FindByConversationID(input.ConversationID)
+	if err != nil {
+		return Plan{}, err
+	}
+
 	prompt := fmt.Sprintf(planSystemPromptTemplate, u.clock.Now().Format(planDateLayout))
 
 	// The Gemini API rejects a `contents` array whose last turn has role
 	// "model" ("Requests ending with a model turn are not supported."),
 	// which the conversation always does at this point (it just replied).
 	// Append an explicit trailing user turn requesting the plan.
-	messages := append(append([]entity.ChatMessage{}, input.Messages...), entity.ChatMessage{
-		Role:    entity.ChatRoleUser,
-		Content: planRequestMessage,
-	})
+	messages := make([]entity.ChatMessage, 0, len(history)+1)
+	for _, m := range history {
+		messages = append(messages, entity.ChatMessage{Role: m.Role, Content: m.Content})
+	}
+	messages = append(messages, entity.ChatMessage{Role: entity.ChatRoleUser, Content: planRequestMessage})
 
 	raw, err := u.ai.GenerateJSON(ctx, prompt, messages, planSchema)
 	if err != nil {

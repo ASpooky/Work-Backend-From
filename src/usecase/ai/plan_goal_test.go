@@ -43,11 +43,13 @@ func TestPlanGoalUsecase_Execute(t *testing.T) {
 			}
 		]
 	}`}
+	messages := &spyMessageRepo{existing: []*entity.ConversationMessage{
+		entity.NewConversationMessage("msg-001", "conv-001", entity.ChatRoleUser, "5km走れるようになりたい", time.Now()),
+	}}
 	fixedNow := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
-	uc := NewPlanGoalUsecase(gen, stubClock{now: fixedNow})
+	uc := NewPlanGoalUsecase(gen, messages, stubClock{now: fixedNow})
 
-	messages := []entity.ChatMessage{{Role: entity.ChatRoleUser, Content: "5km走れるようになりたい"}}
-	got, err := uc.Execute(context.Background(), PlanGoalInput{Messages: messages})
+	got, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"})
 	if err != nil {
 		t.Fatalf("Execute() returned unexpected error: %v", err)
 	}
@@ -99,13 +101,13 @@ func TestPlanGoalUsecase_Execute_AppendsTrailingUserTurnWhenConversationEndsWith
 		"goal": {"title": "x", "detail": "x", "achievement_condition": "x", "end_date": "2026-09-30", "mode": "strict"},
 		"tasks": []
 	}`}
-	uc := NewPlanGoalUsecase(gen, stubClock{now: time.Now()})
+	messages := &spyMessageRepo{existing: []*entity.ConversationMessage{
+		entity.NewConversationMessage("msg-001", "conv-001", entity.ChatRoleUser, "3ヶ月後のフルマラソンで完走したい", time.Now()),
+		entity.NewConversationMessage("msg-002", "conv-001", entity.ChatRoleModel, "必達ですか、努力目標ですか？", time.Now()),
+	}}
+	uc := NewPlanGoalUsecase(gen, messages, stubClock{now: time.Now()})
 
-	messages := []entity.ChatMessage{
-		{Role: entity.ChatRoleUser, Content: "3ヶ月後のフルマラソンで完走したい"},
-		{Role: entity.ChatRoleModel, Content: "必達ですか、努力目標ですか？"},
-	}
-	if _, err := uc.Execute(context.Background(), PlanGoalInput{Messages: messages}); err != nil {
+	if _, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"}); err != nil {
 		t.Fatalf("Execute() returned unexpected error: %v", err)
 	}
 
@@ -118,8 +120,8 @@ func TestPlanGoalUsecase_Execute_AppendsTrailingUserTurnWhenConversationEndsWith
 		t.Fatalf("GenerateJSON() was called with messages ending in role %q, want the last message to be role %q",
 			got[len(got)-1].Role, entity.ChatRoleUser)
 	}
-	if len(got) != len(messages)+1 {
-		t.Errorf("GenerateJSON() received %d messages, want %d (original + 1 appended trailing user turn)", len(got), len(messages)+1)
+	if len(got) != len(messages.existing)+1 {
+		t.Errorf("GenerateJSON() received %d messages, want %d (history + 1 appended trailing user turn)", len(got), len(messages.existing)+1)
 	}
 }
 
@@ -131,9 +133,10 @@ func TestPlanGoalUsecase_Execute_InvalidDate(t *testing.T) {
 		},
 		"tasks": []
 	}`}
-	uc := NewPlanGoalUsecase(gen, stubClock{now: time.Now()})
+	messages := &spyMessageRepo{}
+	uc := NewPlanGoalUsecase(gen, messages, stubClock{now: time.Now()})
 
-	_, err := uc.Execute(context.Background(), PlanGoalInput{Messages: nil})
+	_, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"})
 	if err == nil {
 		t.Fatal("Execute() with an invalid end_date returned nil error, want non-nil")
 	}

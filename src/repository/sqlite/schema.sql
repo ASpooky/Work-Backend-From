@@ -32,6 +32,22 @@ CREATE TABLE IF NOT EXISTS daily_tasks (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    title TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id),
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 -- Single-user deployment: entity.md allows a fixed User.id in this setup.
 INSERT OR IGNORE INTO users (id, name, created_at)
 VALUES ('00000000-0000-0000-0000-000000000001', 'default', '2026-01-01T00:00:00Z');

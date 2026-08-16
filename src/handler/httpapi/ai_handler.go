@@ -5,55 +5,88 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/ASpooky/Work-Backend-From/src/entity"
 	"github.com/ASpooky/Work-Backend-From/src/usecase/ai"
 )
 
 type AIHandler struct {
-	chat *ai.ChatUsecase
-	plan *ai.PlanGoalUsecase
+	sendMessage       *ai.SendMessageUsecase
+	listConversations *ai.ListConversationsUsecase
+	getConversation   *ai.GetConversationUsecase
+	plan              *ai.PlanGoalUsecase
 }
 
-func NewAIHandler(chat *ai.ChatUsecase, plan *ai.PlanGoalUsecase) *AIHandler {
-	return &AIHandler{chat: chat, plan: plan}
-}
-
-type chatMessageRequest struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type chatRequest struct {
-	Messages []chatMessageRequest `json:"messages"`
-}
-
-func toChatMessages(req []chatMessageRequest) []entity.ChatMessage {
-	messages := make([]entity.ChatMessage, len(req))
-	for i, m := range req {
-		messages[i] = entity.ChatMessage{Role: entity.ChatRole(m.Role), Content: m.Content}
+func NewAIHandler(
+	sendMessage *ai.SendMessageUsecase,
+	listConversations *ai.ListConversationsUsecase,
+	getConversation *ai.GetConversationUsecase,
+	plan *ai.PlanGoalUsecase,
+) *AIHandler {
+	return &AIHandler{
+		sendMessage:       sendMessage,
+		listConversations: listConversations,
+		getConversation:   getConversation,
+		plan:              plan,
 	}
-	return messages
 }
 
 func (h *AIHandler) Status(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"enabled": true})
 }
 
-func (h *AIHandler) Chat(w http.ResponseWriter, r *http.Request) {
-	var req chatRequest
+type sendMessageRequest struct {
+	WorkspaceID    string `json:"workspace_id"`
+	ConversationID string `json:"conversation_id"`
+	Content        string `json:"content"`
+}
+
+func (h *AIHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
+	var req sendMessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	reply, err := h.chat.Execute(r.Context(), ai.ChatInput{Messages: toChatMessages(req.Messages)})
+	got, err := h.sendMessage.Execute(r.Context(), ai.SendMessageInput{
+		WorkspaceID:    req.WorkspaceID,
+		ConversationID: req.ConversationID,
+		Content:        req.Content,
+	})
 	if err != nil {
-		log.Printf("AI chat failed: %v", err)
+		log.Printf("AI send message failed: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"reply": reply})
+	writeJSON(w, http.StatusOK, map[string]string{
+		"conversation_id": got.ConversationID,
+		"reply":           got.Reply,
+	})
+}
+
+func (h *AIHandler) ListConversations(w http.ResponseWriter, r *http.Request) {
+	workspaceID := r.URL.Query().Get("workspace_id")
+
+	got, err := h.listConversations.Execute(workspaceID)
+	if err != nil {
+		log.Printf("AI list conversations failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, got)
+}
+
+func (h *AIHandler) GetConversation(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	got, err := h.getConversation.Execute(id)
+	if err != nil {
+		log.Printf("AI get conversation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, got)
 }
 
 type plannedGoalResponse struct {
@@ -78,14 +111,18 @@ type planResponse struct {
 	Tasks []plannedTaskResponse `json:"tasks"`
 }
 
+type planRequest struct {
+	ConversationID string `json:"conversation_id"`
+}
+
 func (h *AIHandler) Plan(w http.ResponseWriter, r *http.Request) {
-	var req chatRequest
+	var req planRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	plan, err := h.plan.Execute(r.Context(), ai.PlanGoalInput{Messages: toChatMessages(req.Messages)})
+	plan, err := h.plan.Execute(r.Context(), ai.PlanGoalInput{ConversationID: req.ConversationID})
 	if err != nil {
 		log.Printf("AI plan generation failed: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

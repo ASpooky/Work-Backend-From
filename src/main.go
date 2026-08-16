@@ -78,9 +78,20 @@ func main() {
 			model = defaultGeminiModel
 		}
 		geminiClient := infraai.NewGeminiClient(geminiAPIKey, model)
-		aiHandler := httpapi.NewAIHandler(ai.NewChatUsecase(geminiClient, clk), ai.NewPlanGoalUsecase(geminiClient, clk))
+		conversationRepo := sqlite.NewConversationRepository(db)
+		conversationMessageRepo := sqlite.NewConversationMessageRepository(db)
+
+		chatUsecase := ai.NewChatUsecase(geminiClient, clk)
+		sendMessage := ai.NewSendMessageUsecase(conversationRepo, conversationRepo, conversationMessageRepo, chatUsecase, ids, clk)
+		listConversations := ai.NewListConversationsUsecase(conversationRepo)
+		getConversation := ai.NewGetConversationUsecase(conversationMessageRepo)
+		planGoal := ai.NewPlanGoalUsecase(geminiClient, conversationMessageRepo, clk)
+
+		aiHandler := httpapi.NewAIHandler(sendMessage, listConversations, getConversation, planGoal)
 		mux.HandleFunc("GET /ai/status", aiHandler.Status)
-		mux.HandleFunc("POST /ai/chat", aiHandler.Chat)
+		mux.HandleFunc("POST /ai/chat", aiHandler.SendMessage)
+		mux.HandleFunc("GET /ai/conversations", aiHandler.ListConversations)
+		mux.HandleFunc("GET /ai/conversations/{id}/messages", aiHandler.GetConversation)
 		mux.HandleFunc("POST /ai/plan", aiHandler.Plan)
 		log.Printf("AI features enabled (model=%s)", model)
 	} else {
