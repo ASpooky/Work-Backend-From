@@ -86,6 +86,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     throw new Error(`${init?.method ?? 'GET'} ${path} failed: ${res.status} ${await res.text()}`)
   }
+  if (res.status === 204) {
+    return undefined as T
+  }
   return res.json() as Promise<T>
 }
 
@@ -93,6 +96,13 @@ export const api = {
   listWorkspaces: () => request<Workspace[]>('/workspaces'),
   createWorkspace: (body: { user_id: string; name: string }) =>
     request<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(body) }),
+  renameWorkspace: (id: string, name: string) =>
+    request<{ id: string; name: string }>(`/workspaces/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+  deleteWorkspace: (id: string) =>
+    request<void>(`/workspaces/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   listGoals: (workspaceId: string) =>
     request<Goal[]>(`/goals?workspace_id=${encodeURIComponent(workspaceId)}`),

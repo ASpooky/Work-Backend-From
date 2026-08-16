@@ -1,15 +1,39 @@
 import { NavLink } from 'react-router-dom'
+import type { Workspace } from '../api'
+import WorkspaceSwitcher from './WorkspaceSwitcher'
 import './Sidebar.css'
 
 type Props = {
-  workspaceName: string
+  workspaces: Workspace[]
+  activeWorkspaceId: string | null
+  onSwitchWorkspace: (id: string) => void
+  onCreateWorkspace: (name: string) => void
+  onRenameWorkspace: (id: string, name: string) => void
+  onDeleteWorkspace: (id: string) => void
 }
 
-function Sidebar({ workspaceName }: Props) {
+function Sidebar({
+  workspaces,
+  activeWorkspaceId,
+  onSwitchWorkspace,
+  onCreateWorkspace,
+  onRenameWorkspace,
+  onDeleteWorkspace,
+}: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">Goal Tracker</div>
-      <div className="sidebar-workspace">{workspaceName}</div>
+
+      <div className="sidebar-workspace">
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          onSwitch={onSwitchWorkspace}
+          onCreate={onCreateWorkspace}
+          onRename={onRenameWorkspace}
+          onDelete={onDeleteWorkspace}
+        />
+      </div>
 
       <nav className="sidebar-nav">
         <NavLink to="/" end className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}>

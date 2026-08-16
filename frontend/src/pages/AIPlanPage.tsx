@@ -34,6 +34,10 @@ function AIPlanPage({ workspace, onCreated }: Props) {
   }, [])
 
   useEffect(() => {
+    setActiveConversationId(null)
+    setMessages([])
+    setPlan(null)
+
     if (aiEnabled !== true) return
     api
       .listConversations(workspace.id)
