@@ -14,44 +14,51 @@ import (
 const planDateLayout = "2006-01-02"
 
 const planSystemPromptTemplate = `あなたはユーザーの目標達成を支援するプランナーです。今日の日付は %s です。
-これまでの会話の内容をもとに、目標(goal)と、それを確実に達成するための日々のタスク(tasks)を
-提案してください。タスクは無理のない頻度にし、goalの達成条件と矛盾しないようにしてください。
+これまでの会話の内容をもとに、目標(goals)と、それぞれを確実に達成するための日々のタスク(tasks)を
+提案してください。タスクは無理のない頻度にし、対応するgoalの達成条件と矛盾しないようにしてください。
 「3ヶ月後」のような相対的な期限は、今日の日付を基準に計算した実際の日付にしてください。
-過去の日付を出力してはいけません。日付はすべて YYYY-MM-DD 形式で出力してください。`
+過去の日付を出力してはいけません。日付はすべて YYYY-MM-DD 形式で出力してください。
+
+会話の内容が、性質の異なる複数の段階（フェーズ）に分けたほうが自然な場合は、
+goalsに複数の目標を、時系列順に並べて提案してください(例: 「土台作り期」→「追い込み期」のように、
+それぞれ異なる達成条件・期限・タスクを持つ別の目標として)。単一の目標で十分な内容であれば、
+goalsには1件だけを含めてください。無理に分割する必要はありません。`
 
 const planRequestMessage = "これまでの内容をもとに、目標と日々のタスクの提案を出力してください。"
+
+var planTaskSchema = map[string]any{
+	"type": "object",
+	"properties": map[string]any{
+		"content":       map[string]any{"type": "string"},
+		"start_date":    map[string]any{"type": "string", "description": "YYYY-MM-DD"},
+		"end_date":      map[string]any{"type": "string", "description": "YYYY-MM-DD"},
+		"rule_type":     map[string]any{"type": "string", "enum": []string{"interval", "weekly"}},
+		"interval_days": map[string]any{"type": "integer"},
+		"weekdays":      map[string]any{"type": "array", "items": map[string]any{"type": "integer"}},
+	},
+	"required": []string{"content", "start_date", "end_date", "rule_type"},
+}
 
 var planSchema = map[string]any{
 	"type": "object",
 	"properties": map[string]any{
-		"goal": map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"title":                 map[string]any{"type": "string"},
-				"detail":                map[string]any{"type": "string"},
-				"achievement_condition": map[string]any{"type": "string"},
-				"end_date":              map[string]any{"type": "string", "description": "YYYY-MM-DD"},
-				"mode":                  map[string]any{"type": "string", "enum": []string{"strict", "want"}},
-			},
-			"required": []string{"title", "detail", "achievement_condition", "end_date", "mode"},
-		},
-		"tasks": map[string]any{
+		"goals": map[string]any{
 			"type": "array",
 			"items": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"content":       map[string]any{"type": "string"},
-					"start_date":    map[string]any{"type": "string", "description": "YYYY-MM-DD"},
-					"end_date":      map[string]any{"type": "string", "description": "YYYY-MM-DD"},
-					"rule_type":     map[string]any{"type": "string", "enum": []string{"interval", "weekly"}},
-					"interval_days": map[string]any{"type": "integer"},
-					"weekdays":      map[string]any{"type": "array", "items": map[string]any{"type": "integer"}},
+					"title":                 map[string]any{"type": "string"},
+					"detail":                map[string]any{"type": "string"},
+					"achievement_condition": map[string]any{"type": "string"},
+					"end_date":              map[string]any{"type": "string", "description": "YYYY-MM-DD"},
+					"mode":                  map[string]any{"type": "string", "enum": []string{"strict", "want"}},
+					"tasks":                 map[string]any{"type": "array", "items": planTaskSchema},
 				},
-				"required": []string{"content", "start_date", "end_date", "rule_type"},
+				"required": []string{"title", "detail", "achievement_condition", "end_date", "mode", "tasks"},
 			},
 		},
 	},
-	"required": []string{"goal", "tasks"},
+	"required": []string{"goals"},
 }
 
 type PlanGenerator interface {
@@ -81,17 +88,17 @@ type PlannedTask struct {
 	Rule      dailytask.RecurrenceRule
 }
 
-type Plan struct {
+// PlannedGoalPlan pairs one proposed goal with its own tasks — a Plan holds
+// one or more of these, since a long-running goal may naturally split into
+// sequential phases (each with its own achievement condition and deadline)
+// rather than a single goal trying to cover the whole arc.
+type PlannedGoalPlan struct {
 	Goal  PlannedGoal
 	Tasks []PlannedTask
 }
 
-type planGoalWire struct {
-	Title                string `json:"title"`
-	Detail               string `json:"detail"`
-	AchievementCondition string `json:"achievement_condition"`
-	EndDate              string `json:"end_date"`
-	Mode                 string `json:"mode"`
+type Plan struct {
+	Goals []PlannedGoalPlan
 }
 
 type planTaskWire struct {
@@ -103,9 +110,17 @@ type planTaskWire struct {
 	Weekdays     []int  `json:"weekdays"`
 }
 
+type planGoalWire struct {
+	Title                string         `json:"title"`
+	Detail               string         `json:"detail"`
+	AchievementCondition string         `json:"achievement_condition"`
+	EndDate              string         `json:"end_date"`
+	Mode                 string         `json:"mode"`
+	Tasks                []planTaskWire `json:"tasks"`
+}
+
 type planWire struct {
-	Goal  planGoalWire   `json:"goal"`
-	Tasks []planTaskWire `json:"tasks"`
+	Goals []planGoalWire `json:"goals"`
 }
 
 type PlanGoalUsecase struct {
@@ -145,43 +160,51 @@ func (u *PlanGoalUsecase) Execute(ctx context.Context, input PlanGoalInput) (Pla
 	if err := json.Unmarshal([]byte(raw), &wire); err != nil {
 		return Plan{}, fmt.Errorf("failed to parse AI plan response: %w", err)
 	}
-
-	goalEndDate, err := time.Parse(planDateLayout, wire.Goal.EndDate)
-	if err != nil {
-		return Plan{}, fmt.Errorf("invalid goal end_date %q from AI: %w", wire.Goal.EndDate, err)
+	if len(wire.Goals) == 0 {
+		return Plan{}, fmt.Errorf("AI plan response contained no goals")
 	}
 
-	plan := Plan{
-		Goal: PlannedGoal{
-			Title:                wire.Goal.Title,
-			Detail:               wire.Goal.Detail,
-			AchievementCondition: wire.Goal.AchievementCondition,
-			EndDate:              goalEndDate,
-			Mode:                 entity.GoalMode(wire.Goal.Mode),
-		},
-	}
-
-	for _, t := range wire.Tasks {
-		start, err := time.Parse(planDateLayout, t.StartDate)
+	plan := Plan{Goals: make([]PlannedGoalPlan, 0, len(wire.Goals))}
+	for _, g := range wire.Goals {
+		goalEndDate, err := time.Parse(planDateLayout, g.EndDate)
 		if err != nil {
-			return Plan{}, fmt.Errorf("invalid task start_date %q from AI: %w", t.StartDate, err)
-		}
-		end, err := time.Parse(planDateLayout, t.EndDate)
-		if err != nil {
-			return Plan{}, fmt.Errorf("invalid task end_date %q from AI: %w", t.EndDate, err)
+			return Plan{}, fmt.Errorf("invalid goal end_date %q from AI: %w", g.EndDate, err)
 		}
 
-		rule := dailytask.RecurrenceRule{Type: dailytask.RecurrenceType(t.RuleType), IntervalDays: t.IntervalDays}
-		for _, wd := range t.Weekdays {
-			rule.Weekdays = append(rule.Weekdays, time.Weekday(wd))
+		planned := PlannedGoalPlan{
+			Goal: PlannedGoal{
+				Title:                g.Title,
+				Detail:               g.Detail,
+				AchievementCondition: g.AchievementCondition,
+				EndDate:              goalEndDate,
+				Mode:                 entity.GoalMode(g.Mode),
+			},
 		}
 
-		plan.Tasks = append(plan.Tasks, PlannedTask{
-			Content:   t.Content,
-			StartDate: start,
-			EndDate:   end,
-			Rule:      rule,
-		})
+		for _, t := range g.Tasks {
+			start, err := time.Parse(planDateLayout, t.StartDate)
+			if err != nil {
+				return Plan{}, fmt.Errorf("invalid task start_date %q from AI: %w", t.StartDate, err)
+			}
+			end, err := time.Parse(planDateLayout, t.EndDate)
+			if err != nil {
+				return Plan{}, fmt.Errorf("invalid task end_date %q from AI: %w", t.EndDate, err)
+			}
+
+			rule := dailytask.RecurrenceRule{Type: dailytask.RecurrenceType(t.RuleType), IntervalDays: t.IntervalDays}
+			for _, wd := range t.Weekdays {
+				rule.Weekdays = append(rule.Weekdays, time.Weekday(wd))
+			}
+
+			planned.Tasks = append(planned.Tasks, PlannedTask{
+				Content:   t.Content,
+				StartDate: start,
+				EndDate:   end,
+				Rule:      rule,
+			})
+		}
+
+		plan.Goals = append(plan.Goals, planned)
 	}
 
 	return plan, nil

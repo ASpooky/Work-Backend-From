@@ -118,9 +118,13 @@ type plannedTaskResponse struct {
 	Weekdays     []int  `json:"weekdays,omitempty"`
 }
 
-type planResponse struct {
+type plannedGoalPlanResponse struct {
 	Goal  plannedGoalResponse   `json:"goal"`
 	Tasks []plannedTaskResponse `json:"tasks"`
+}
+
+type planResponse struct {
+	Goals []plannedGoalPlanResponse `json:"goals"`
 }
 
 type planRequest struct {
@@ -141,28 +145,32 @@ func (h *AIHandler) Plan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := planResponse{
-		Goal: plannedGoalResponse{
-			Title:                plan.Goal.Title,
-			Detail:               plan.Goal.Detail,
-			AchievementCondition: plan.Goal.AchievementCondition,
-			EndDate:              plan.Goal.EndDate.Format(dateLayout),
-			Mode:                 string(plan.Goal.Mode),
-		},
-		Tasks: []plannedTaskResponse{},
-	}
-	for _, t := range plan.Tasks {
-		tr := plannedTaskResponse{
-			Content:      t.Content,
-			StartDate:    t.StartDate.Format(dateLayout),
-			EndDate:      t.EndDate.Format(dateLayout),
-			RuleType:     string(t.Rule.Type),
-			IntervalDays: t.Rule.IntervalDays,
+	resp := planResponse{Goals: make([]plannedGoalPlanResponse, 0, len(plan.Goals))}
+	for _, g := range plan.Goals {
+		gr := plannedGoalPlanResponse{
+			Goal: plannedGoalResponse{
+				Title:                g.Goal.Title,
+				Detail:               g.Goal.Detail,
+				AchievementCondition: g.Goal.AchievementCondition,
+				EndDate:              g.Goal.EndDate.Format(dateLayout),
+				Mode:                 string(g.Goal.Mode),
+			},
+			Tasks: []plannedTaskResponse{},
 		}
-		for _, wd := range t.Rule.Weekdays {
-			tr.Weekdays = append(tr.Weekdays, int(wd))
+		for _, t := range g.Tasks {
+			tr := plannedTaskResponse{
+				Content:      t.Content,
+				StartDate:    t.StartDate.Format(dateLayout),
+				EndDate:      t.EndDate.Format(dateLayout),
+				RuleType:     string(t.Rule.Type),
+				IntervalDays: t.Rule.IntervalDays,
+			}
+			for _, wd := range t.Rule.Weekdays {
+				tr.Weekdays = append(tr.Weekdays, int(wd))
+			}
+			gr.Tasks = append(gr.Tasks, tr)
 		}
-		resp.Tasks = append(resp.Tasks, tr)
+		resp.Goals = append(resp.Goals, gr)
 	}
 
 	writeJSON(w, http.StatusOK, resp)

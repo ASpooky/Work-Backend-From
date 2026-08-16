@@ -83,9 +83,13 @@ export type PlannedTask = {
   weekdays?: number[]
 }
 
-export type Plan = {
+export type PlannedGoalPlan = {
   goal: PlannedGoal
   tasks: PlannedTask[]
+}
+
+export type Plan = {
+  goals: PlannedGoalPlan[]
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

@@ -23,8 +23,9 @@ function AIPlanPage({ workspace, isAllWorkspaces, onCreated }: Props) {
   const [planning, setPlanning] = useState(false)
   const [committing, setCommitting] = useState(false)
   const [plan, setPlan] = useState<Plan | null>(null)
-  const [editedGoal, setEditedGoal] = useState<PlannedGoal | null>(null)
-  const [removedTaskIndexes, setRemovedTaskIndexes] = useState<number[]>([])
+  const [editedGoals, setEditedGoals] = useState<PlannedGoal[]>([])
+  // Removed task indexes per goal, same shape/order as plan.goals.
+  const [removedTaskIndexes, setRemovedTaskIndexes] = useState<number[][]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -47,9 +48,23 @@ function AIPlanPage({ workspace, isAllWorkspaces, onCreated }: Props) {
   }, [aiEnabled, workspace.id])
 
   useEffect(() => {
-    if (plan) setEditedGoal(plan.goal)
-    setRemovedTaskIndexes([])
+    if (plan) {
+      setEditedGoals(plan.goals.map((g) => g.goal))
+      setRemovedTaskIndexes(plan.goals.map(() => []))
+    }
   }, [plan])
+
+  function updateEditedGoal(goalIndex: number, patch: Partial<PlannedGoal>) {
+    setEditedGoals((prev) => prev.map((g, i) => (i === goalIndex ? { ...g, ...patch } : g)))
+  }
+
+  function toggleTaskRemoved(goalIndex: number, taskIndex: number) {
+    setRemovedTaskIndexes((prev) =>
+      prev.map((indexes, i) =>
+        i !== goalIndex ? indexes : indexes.includes(taskIndex) ? indexes.filter((x) => x !== taskIndex) : [...indexes, taskIndex],
+      ),
+    )
+  }
 
   function handleNewChat() {
     setActiveConversationId(null)
@@ -121,31 +136,35 @@ function AIPlanPage({ workspace, isAllWorkspaces, onCreated }: Props) {
   }
 
   async function handleConfirmPlan() {
-    if (!plan || !editedGoal) return
+    if (!plan || editedGoals.length === 0) return
     setCommitting(true)
     setError(null)
     try {
-      const goal = await api.createGoal({
-        workspace_id: workspace.id,
-        title: editedGoal.title,
-        detail: editedGoal.detail,
-        achievement_condition: editedGoal.achievement_condition,
-        end_date: editedGoal.end_date,
-        mode: editedGoal.mode,
-      })
-
-      const tasks = plan.tasks.filter((_, i) => !removedTaskIndexes.includes(i))
-      for (const task of tasks) {
-        await api.createRecurringDailyTasks({
-          goal_id: goal.id,
-          content: task.content,
-          start_date: task.start_date,
-          end_date: task.end_date,
-          rule:
-            task.rule_type === 'interval'
-              ? { type: 'interval', interval_days: task.interval_days ?? 1 }
-              : { type: 'weekly', weekdays: task.weekdays ?? [] },
+      for (let gi = 0; gi < plan.goals.length; gi++) {
+        const editedGoal = editedGoals[gi]
+        const goal = await api.createGoal({
+          workspace_id: workspace.id,
+          title: editedGoal.title,
+          detail: editedGoal.detail,
+          achievement_condition: editedGoal.achievement_condition,
+          end_date: editedGoal.end_date,
+          mode: editedGoal.mode,
         })
+
+        const removed = removedTaskIndexes[gi] ?? []
+        const tasks = plan.goals[gi].tasks.filter((_, ti) => !removed.includes(ti))
+        for (const task of tasks) {
+          await api.createRecurringDailyTasks({
+            goal_id: goal.id,
+            content: task.content,
+            start_date: task.start_date,
+            end_date: task.end_date,
+            rule:
+              task.rule_type === 'interval'
+                ? { type: 'interval', interval_days: task.interval_days ?? 1 }
+                : { type: 'weekly', weekdays: task.weekdays ?? [] },
+          })
+        }
       }
 
       onCreated()
@@ -238,83 +257,96 @@ function AIPlanPage({ workspace, isAllWorkspaces, onCreated }: Props) {
             </>
           )}
 
-          {plan && editedGoal && (
+          {plan && editedGoals.length > 0 && (
             <div className="ai-plan-review">
-              <h3>提案されたプラン（確認・編集してから登録してください）</h3>
+              <h3>
+                {plan.goals.length > 1
+                  ? `提案されたプラン(${plan.goals.length}件のフェーズ・確認・編集してから登録してください)`
+                  : '提案されたプラン(確認・編集してから登録してください)'}
+              </h3>
 
-              <div className="ai-plan-goal-fields">
-                <label>
-                  タイトル
-                  <input
-                    value={editedGoal.title}
-                    onChange={(e) => setEditedGoal({ ...editedGoal, title: e.target.value })}
-                  />
-                </label>
-                <label>
-                  詳細
-                  <input
-                    value={editedGoal.detail}
-                    onChange={(e) => setEditedGoal({ ...editedGoal, detail: e.target.value })}
-                  />
-                </label>
-                <label>
-                  達成条件
-                  <input
-                    value={editedGoal.achievement_condition}
-                    onChange={(e) => setEditedGoal({ ...editedGoal, achievement_condition: e.target.value })}
-                  />
-                </label>
-                <label>
-                  期限
-                  <input
-                    type="date"
-                    value={editedGoal.end_date}
-                    onChange={(e) => setEditedGoal({ ...editedGoal, end_date: e.target.value })}
-                  />
-                </label>
-                <label>
-                  モード
-                  <select
-                    value={editedGoal.mode}
-                    onChange={(e) => setEditedGoal({ ...editedGoal, mode: e.target.value as 'strict' | 'want' })}
-                  >
-                    <option value="strict">必達</option>
-                    <option value="want">努力目標</option>
-                  </select>
-                </label>
-              </div>
+              {plan.goals.map((goalPlan, gi) => {
+                const editedGoal = editedGoals[gi]
+                const removedForGoal = removedTaskIndexes[gi] ?? []
+                return (
+                  <div key={gi} className="ai-plan-phase">
+                    {plan.goals.length > 1 && <div className="ai-plan-phase-label">フェーズ {gi + 1}</div>}
 
-              <h3>日々のタスク</h3>
-              <ul className="ai-plan-task-list">
-                {plan.tasks.map((task, i) => {
-                  const removed = removedTaskIndexes.includes(i)
-                  return (
-                    <li key={i} className={removed ? 'removed' : ''}>
-                      <div>
-                        <div className="ai-plan-task-content">{task.content}</div>
-                        <div className="ai-plan-task-sub">
-                          {describeRecurrence(task)} ・ {task.start_date} 〜 {task.end_date}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setRemovedTaskIndexes((prev) => (removed ? prev.filter((x) => x !== i) : [...prev, i]))
-                        }
-                      >
-                        {removed ? '戻す' : '削除'}
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
+                    <div className="ai-plan-goal-fields">
+                      <label>
+                        タイトル
+                        <input
+                          value={editedGoal.title}
+                          onChange={(e) => updateEditedGoal(gi, { title: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        詳細
+                        <input
+                          value={editedGoal.detail}
+                          onChange={(e) => updateEditedGoal(gi, { detail: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        達成条件
+                        <input
+                          value={editedGoal.achievement_condition}
+                          onChange={(e) => updateEditedGoal(gi, { achievement_condition: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        期限
+                        <input
+                          type="date"
+                          value={editedGoal.end_date}
+                          onChange={(e) => updateEditedGoal(gi, { end_date: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        モード
+                        <select
+                          value={editedGoal.mode}
+                          onChange={(e) => updateEditedGoal(gi, { mode: e.target.value as 'strict' | 'want' })}
+                        >
+                          <option value="strict">必達</option>
+                          <option value="want">努力目標</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <h3>日々のタスク</h3>
+                    <ul className="ai-plan-task-list">
+                      {goalPlan.tasks.map((task, ti) => {
+                        const removed = removedForGoal.includes(ti)
+                        return (
+                          <li key={ti} className={removed ? 'removed' : ''}>
+                            <div>
+                              <div className="ai-plan-task-content">{task.content}</div>
+                              <div className="ai-plan-task-sub">
+                                {describeRecurrence(task)} ・ {task.start_date} 〜 {task.end_date}
+                              </div>
+                            </div>
+                            <button type="button" onClick={() => toggleTaskRemoved(gi, ti)}>
+                              {removed ? '戻す' : '削除'}
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                )
+              })}
 
               <div className="ai-plan-actions">
                 <button type="button" onClick={() => setPlan(null)}>
                   会話に戻る
                 </button>
                 <button type="button" onClick={handleConfirmPlan} disabled={committing}>
-                  {committing ? '登録中…' : 'この内容で登録する'}
+                  {committing
+                    ? '登録中…'
+                    : plan.goals.length > 1
+                      ? `この内容で${plan.goals.length}件登録する`
+                      : 'この内容で登録する'}
                 </button>
               </div>
             </div>

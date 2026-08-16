@@ -24,22 +24,24 @@ func (s *stubPlanGenerator) GenerateJSON(ctx context.Context, systemInstruction 
 	return s.json, nil
 }
 
-func TestPlanGoalUsecase_Execute(t *testing.T) {
+func TestPlanGoalUsecase_Execute_SingleGoal(t *testing.T) {
 	gen := &stubPlanGenerator{json: `{
-		"goal": {
-			"title": "5kmを走れるようになる",
-			"detail": "毎日のランニング習慣をつける",
-			"achievement_condition": "5km以上を休まず走り切る",
-			"end_date": "2026-09-30",
-			"mode": "strict"
-		},
-		"tasks": [
+		"goals": [
 			{
-				"content": "2kmランニング",
-				"start_date": "2026-08-17",
+				"title": "5kmを走れるようになる",
+				"detail": "毎日のランニング習慣をつける",
+				"achievement_condition": "5km以上を休まず走り切る",
 				"end_date": "2026-09-30",
-				"rule_type": "weekly",
-				"weekdays": [1, 3, 5]
+				"mode": "strict",
+				"tasks": [
+					{
+						"content": "2kmランニング",
+						"start_date": "2026-08-17",
+						"end_date": "2026-09-30",
+						"rule_type": "weekly",
+						"weekdays": [1, 3, 5]
+					}
+				]
 			}
 		]
 	}`}
@@ -54,21 +56,26 @@ func TestPlanGoalUsecase_Execute(t *testing.T) {
 		t.Fatalf("Execute() returned unexpected error: %v", err)
 	}
 
-	if got.Goal.Title != "5kmを走れるようになる" {
-		t.Errorf("Goal.Title = %q, want %q", got.Goal.Title, "5kmを走れるようになる")
+	if len(got.Goals) != 1 {
+		t.Fatalf("len(Goals) = %d, want 1", len(got.Goals))
 	}
-	if got.Goal.Mode != entity.ModeStrict {
-		t.Errorf("Goal.Mode = %q, want %q", got.Goal.Mode, entity.ModeStrict)
+	planned := got.Goals[0]
+
+	if planned.Goal.Title != "5kmを走れるようになる" {
+		t.Errorf("Goal.Title = %q, want %q", planned.Goal.Title, "5kmを走れるようになる")
+	}
+	if planned.Goal.Mode != entity.ModeStrict {
+		t.Errorf("Goal.Mode = %q, want %q", planned.Goal.Mode, entity.ModeStrict)
 	}
 	wantEndDate := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
-	if !got.Goal.EndDate.Equal(wantEndDate) {
-		t.Errorf("Goal.EndDate = %v, want %v", got.Goal.EndDate, wantEndDate)
+	if !planned.Goal.EndDate.Equal(wantEndDate) {
+		t.Errorf("Goal.EndDate = %v, want %v", planned.Goal.EndDate, wantEndDate)
 	}
 
-	if len(got.Tasks) != 1 {
-		t.Fatalf("len(Tasks) = %d, want 1", len(got.Tasks))
+	if len(planned.Tasks) != 1 {
+		t.Fatalf("len(Tasks) = %d, want 1", len(planned.Tasks))
 	}
-	task := got.Tasks[0]
+	task := planned.Tasks[0]
 	if task.Content != "2kmランニング" {
 		t.Errorf("Tasks[0].Content = %q, want %q", task.Content, "2kmランニング")
 	}
@@ -96,10 +103,60 @@ func TestPlanGoalUsecase_Execute(t *testing.T) {
 	}
 }
 
+func TestPlanGoalUsecase_Execute_MultiplePhaseGoals(t *testing.T) {
+	gen := &stubPlanGenerator{json: `{
+		"goals": [
+			{
+				"title": "土台作り期",
+				"detail": "怪我なく走れる体を作る",
+				"achievement_condition": "週20km走る",
+				"end_date": "2026-09-30",
+				"mode": "want",
+				"tasks": [
+					{"content": "軽いジョグ", "start_date": "2026-08-17", "end_date": "2026-09-30", "rule_type": "interval", "interval_days": 2}
+				]
+			},
+			{
+				"title": "追い込み期",
+				"detail": "本番に向けた走り込み",
+				"achievement_condition": "週40km走る",
+				"end_date": "2026-11-15",
+				"mode": "strict",
+				"tasks": [
+					{"content": "ロング走", "start_date": "2026-10-01", "end_date": "2026-11-15", "rule_type": "weekly", "weekdays": [6]}
+				]
+			}
+		]
+	}`}
+	messages := &spyMessageRepo{existing: []*entity.ConversationMessage{
+		entity.NewConversationMessage("msg-001", "conv-001", entity.ChatRoleUser, "3ヶ月後のフルマラソンに向けて段階的に鍛えたい", time.Now()),
+	}}
+	uc := NewPlanGoalUsecase(gen, messages, stubClock{now: time.Now()})
+
+	got, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"})
+	if err != nil {
+		t.Fatalf("Execute() returned unexpected error: %v", err)
+	}
+
+	if len(got.Goals) != 2 {
+		t.Fatalf("len(Goals) = %d, want 2 (multi-phase plan)", len(got.Goals))
+	}
+	if got.Goals[0].Goal.Title != "土台作り期" || got.Goals[0].Goal.Mode != entity.ModeWant {
+		t.Errorf("Goals[0] = %+v, want phase 1 (土台作り期, want mode)", got.Goals[0].Goal)
+	}
+	if got.Goals[1].Goal.Title != "追い込み期" || got.Goals[1].Goal.Mode != entity.ModeStrict {
+		t.Errorf("Goals[1] = %+v, want phase 2 (追い込み期, strict mode)", got.Goals[1].Goal)
+	}
+	if len(got.Goals[0].Tasks) != 1 || len(got.Goals[1].Tasks) != 1 {
+		t.Errorf("each phase should keep its own tasks, got %d and %d", len(got.Goals[0].Tasks), len(got.Goals[1].Tasks))
+	}
+}
+
 func TestPlanGoalUsecase_Execute_AppendsTrailingUserTurnWhenConversationEndsWithModel(t *testing.T) {
 	gen := &stubPlanGenerator{json: `{
-		"goal": {"title": "x", "detail": "x", "achievement_condition": "x", "end_date": "2026-09-30", "mode": "strict"},
-		"tasks": []
+		"goals": [
+			{"title": "x", "detail": "x", "achievement_condition": "x", "end_date": "2026-09-30", "mode": "strict", "tasks": []}
+		]
 	}`}
 	messages := &spyMessageRepo{existing: []*entity.ConversationMessage{
 		entity.NewConversationMessage("msg-001", "conv-001", entity.ChatRoleUser, "3ヶ月後のフルマラソンで完走したい", time.Now()),
@@ -127,11 +184,9 @@ func TestPlanGoalUsecase_Execute_AppendsTrailingUserTurnWhenConversationEndsWith
 
 func TestPlanGoalUsecase_Execute_InvalidDate(t *testing.T) {
 	gen := &stubPlanGenerator{json: `{
-		"goal": {
-			"title": "x", "detail": "x", "achievement_condition": "x",
-			"end_date": "not-a-date", "mode": "strict"
-		},
-		"tasks": []
+		"goals": [
+			{"title": "x", "detail": "x", "achievement_condition": "x", "end_date": "not-a-date", "mode": "strict", "tasks": []}
+		]
 	}`}
 	messages := &spyMessageRepo{}
 	uc := NewPlanGoalUsecase(gen, messages, stubClock{now: time.Now()})
@@ -139,5 +194,16 @@ func TestPlanGoalUsecase_Execute_InvalidDate(t *testing.T) {
 	_, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"})
 	if err == nil {
 		t.Fatal("Execute() with an invalid end_date returned nil error, want non-nil")
+	}
+}
+
+func TestPlanGoalUsecase_Execute_NoGoals(t *testing.T) {
+	gen := &stubPlanGenerator{json: `{"goals": []}`}
+	messages := &spyMessageRepo{}
+	uc := NewPlanGoalUsecase(gen, messages, stubClock{now: time.Now()})
+
+	_, err := uc.Execute(context.Background(), PlanGoalInput{ConversationID: "conv-001"})
+	if err == nil {
+		t.Fatal("Execute() with zero goals from the AI returned nil error, want non-nil (nothing usable to review/save)")
 	}
 }
