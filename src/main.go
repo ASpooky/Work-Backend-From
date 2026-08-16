@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/joho/godotenv"
+
 	"github.com/ASpooky/Work-Backend-From/src/handler/httpapi"
 	infraai "github.com/ASpooky/Work-Backend-From/src/infra/ai"
 	"github.com/ASpooky/Work-Backend-From/src/infra/clock"
@@ -20,6 +22,8 @@ import (
 const defaultGeminiModel = "gemini-3.7-flash"
 
 func main() {
+	loadEnvFiles(".env", "src/.env")
+
 	db, err := sqlite.Open("app.db")
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
@@ -85,6 +89,22 @@ func main() {
 
 	log.Println("listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", httpapi.WithCORS(mux)))
+}
+
+// loadEnvFiles best-effort loads .env files from the given candidate paths
+// (so `go run ./src` from the repo root and from src/ both work). A missing
+// file is not an error; existing OS environment variables always win.
+func loadEnvFiles(paths ...string) {
+	for _, path := range paths {
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+		if err := godotenv.Load(path); err != nil {
+			log.Printf("warning: failed to load %s: %v", path, err)
+			continue
+		}
+		log.Printf("loaded environment from %s", path)
+	}
 }
 
 func ensureDefaultWorkspace(create *workspace.CreateWorkspaceUsecase, list *workspace.ListWorkspacesUsecase) error {
