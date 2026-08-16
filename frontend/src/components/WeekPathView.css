@@ -47,6 +47,27 @@
   color: var(--accent);
 }
 
+.week-path-day-button {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding: 2px 4px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.week-path-day-button:hover {
+  background: var(--bg-raised);
+}
+
+.week-path-day-button.selected {
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 500;
+}
+
 .week-path-table tbody tr {
   border-bottom: 0.5px solid var(--border);
 }

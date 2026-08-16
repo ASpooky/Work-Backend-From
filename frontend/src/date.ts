@@ -97,6 +97,14 @@ export function daysUntil(isoDate: string): number {
   return Math.round((targetMidnight.getTime() - todayMidnight.getTime()) / 86_400_000)
 }
 
+export function formatShortDateJa(isoDate: string): string {
+  // Appending a local-time suffix avoids the bare "YYYY-MM-DD" UTC-parsing
+  // gotcha (new Date("2026-08-17") is midnight UTC, which can display as
+  // the previous day in negative-UTC-offset timezones).
+  const d = new Date(`${isoDate}T00:00:00`)
+  return `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAY_LABELS_JA[d.getDay()]})`
+}
+
 export function eachDate(from: Date, to: Date): Date[] {
   const days: Date[] = []
   const cursor = new Date(from)

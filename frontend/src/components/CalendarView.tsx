@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { api, type DailyTask, type GoalCalendar, type Workspace } from '../api'
-import { startOfPeriod, endOfPeriod, shiftPeriod, formatISODate, formatPeriodLabel, eachDate } from '../date'
+import {
+  startOfPeriod,
+  endOfPeriod,
+  shiftPeriod,
+  formatISODate,
+  formatPeriodLabel,
+  formatShortDateJa,
+  eachDate,
+} from '../date'
 import { toUserMessage } from '../errors'
 import WeekPathView from './WeekPathView'
 import './CalendarView.css'
@@ -13,16 +21,19 @@ type Props = {
 
 function CalendarView({ workspaceId, workspaces, refreshKey }: Props) {
   const [anchor, setAnchor] = useState(() => startOfPeriod('week', new Date()))
+  const [selectedDate, setSelectedDate] = useState(() => formatISODate(new Date()))
   const [dayTasks, setDayTasks] = useState<DailyTask[]>([])
   const [calendar, setCalendar] = useState<GoalCalendar[]>([])
   const [error, setError] = useState<string | null>(null)
 
+  const isToday = selectedDate === formatISODate(new Date())
+
   useEffect(() => {
     api
-      .listDailyTasks(formatISODate(new Date()))
+      .listDailyTasks(selectedDate)
       .then(setDayTasks)
       .catch((err) => setError(toUserMessage(err)))
-  }, [refreshKey])
+  }, [selectedDate, refreshKey])
 
   useEffect(() => {
     const from = startOfPeriod('week', anchor)
@@ -86,16 +97,25 @@ function CalendarView({ workspaceId, workspaces, refreshKey }: Props) {
         calendar={calendar}
         days={days}
         workspaceNameById={workspaceId === '' ? workspaceNameById : undefined}
+        selectedDateKey={selectedDate}
+        onSelectDate={setSelectedDate}
       />
 
       <div className="today-task-list">
         <div className="today-task-list-header">
-          <h3>今日のタスク</h3>
-          {dayTasks.length > 0 && (
-            <span className="today-task-count">
-              {doneCount}/{dayTasks.length}
-            </span>
-          )}
+          <h3>{isToday ? '今日のタスク' : `${formatShortDateJa(selectedDate)}のタスク`}</h3>
+          <div className="today-task-list-header-right">
+            {dayTasks.length > 0 && (
+              <span className="today-task-count">
+                {doneCount}/{dayTasks.length}
+              </span>
+            )}
+            {!isToday && (
+              <button type="button" className="today-task-reset" onClick={() => setSelectedDate(formatISODate(new Date()))}>
+                今日に戻る
+              </button>
+            )}
+          </div>
         </div>
         <ul className="task-list">
           {sortedDayTasks.map((task) => (
@@ -111,7 +131,7 @@ function CalendarView({ workspaceId, workspaces, refreshKey }: Props) {
               </label>
             </li>
           ))}
-          {dayTasks.length === 0 && <li>今日のタスクはありません</li>}
+          {dayTasks.length === 0 && <li>{isToday ? '今日のタスクはありません。' : 'この日のタスクはありません。'}</li>}
         </ul>
       </div>
     </section>

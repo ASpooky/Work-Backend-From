@@ -14,6 +14,8 @@ type Props = {
   calendar: GoalCalendar[]
   days: Date[]
   workspaceNameById?: Map<string, string>
+  selectedDateKey: string
+  onSelectDate: (dateKey: string) => void
 }
 
 type NodeState = 'done' | 'missed' | 'today-pending' | 'upcoming' | 'no-task' | 'milestone'
@@ -27,7 +29,7 @@ function dayNodeState(status: DayStatus, isMilestone: boolean, dayKey: string, t
   return 'upcoming'
 }
 
-function WeekPathView({ calendar, days, workspaceNameById }: Props) {
+function WeekPathView({ calendar, days, workspaceNameById, selectedDateKey, onSelectDate }: Props) {
   const [expanded, setExpanded] = useState(false)
   const dayKeys = days.map(formatISODate)
   const todayKey = formatISODate(new Date())
@@ -58,7 +60,13 @@ function WeekPathView({ calendar, days, workspaceNameById }: Props) {
                   </th>
                   {days.map((d, i) => (
                     <th scope="col" key={dayKeys[i]} className={dayKeys[i] === todayKey ? 'accent' : ''}>
-                      {WEEKDAY_LABELS[i]} {d.getDate()}
+                      <button
+                        type="button"
+                        className={`week-path-day-button${dayKeys[i] === selectedDateKey ? ' selected' : ''}`}
+                        onClick={() => onSelectDate(dayKeys[i])}
+                      >
+                        {WEEKDAY_LABELS[i]} {d.getDate()}
+                      </button>
                     </th>
                   ))}
                 </tr>

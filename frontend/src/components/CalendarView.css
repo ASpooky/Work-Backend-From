@@ -41,10 +41,22 @@
   margin: 0;
 }
 
+.today-task-list-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .today-task-count {
   font-size: 0.75rem;
   color: var(--text);
   font-variant-numeric: tabular-nums;
+}
+
+.today-task-reset {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  min-height: 0;
 }
 
 .task-item {
