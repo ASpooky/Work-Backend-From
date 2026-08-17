@@ -27,6 +27,7 @@ export type DailyTask = {
   content: string
   done: boolean
   created_at: string
+  memo?: string
 }
 
 export type DayStatus = 'no_task' | 'not_done' | 'done'
@@ -161,6 +162,11 @@ export const api = {
     request<{ id: string; done: boolean }>(`/daily-tasks/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify({ done }),
+    }),
+  updateTaskMemo: (id: string, memo: string | null) =>
+    request<{ id: string; memo: string | null }>(`/daily-tasks/${encodeURIComponent(id)}/memo`, {
+      method: 'PATCH',
+      body: JSON.stringify({ memo }),
     }),
 
   getCalendar: (workspaceId: string, from: string, to: string) =>

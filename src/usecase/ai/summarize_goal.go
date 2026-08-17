@@ -3,16 +3,22 @@ package ai
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/ASpooky/Work-Backend-From/src/entity"
 	"github.com/ASpooky/Work-Backend-From/src/usecase"
 )
 
+const recentMemosLimit = 5
+
 const goalSummarySystemPrompt = `あなたはユーザーの目標達成を支援するコーチです。以下の目標の進捗データをもとに、
 現在のペースで期限までに達成できそうか、達成率、先延ばしの回数などを踏まえて、
 簡潔に(3〜4文程度)日本語で状況を評価してください。単なる数字の読み上げではなく、
-具体的なアドバイスや励ましを含めてください。`
+具体的なアドバイスや励ましを含めてください。直近のメモが提供されている場合は、
+その内容(体調・気づきなど)にも触れ、数字だけでは分からない具体的なフィードバックを
+含めてください。`
 
 type GoalSummaryInput struct {
 	GoalID string
@@ -72,6 +78,11 @@ func (u *SummarizeGoalUsecase) Execute(ctx context.Context, input GoalSummaryInp
 		return GoalSummaryOutput{}, err
 	}
 
+	tasks, err := u.tasks.FindByGoalIDAndDateRange(goal.ID, goal.CreatedAt, goal.EndDate)
+	if err != nil {
+		return GoalSummaryOutput{}, err
+	}
+
 	prompt := fmt.Sprintf(
 		`今日の日付: %s
 目標: %s
@@ -79,9 +90,10 @@ func (u *SummarizeGoalUsecase) Execute(ctx context.Context, input GoalSummaryInp
 モード: %s
 期限まで残り: %d日
 これまでの達成率: %d%%(%d件中%d件完了)
-先延ばし回数: %d回`,
+先延ばし回数: %d回%s`,
 		nowDate.Format(planDateLayout), goal.Title, goal.AchievementCondition, goal.Mode,
 		stats.DaysRemaining, int(stats.AchievementRate*100), stats.ScheduledCount, stats.DoneCount, stats.PostponeCount,
+		summarizeRecentMemos(tasks),
 	)
 
 	summary, err := u.ai.Chat(ctx, goalSummarySystemPrompt, []entity.ChatMessage{
@@ -132,4 +144,33 @@ func computeGoalStats(tasks TaskRangeReader, goal *entity.Goal, now time.Time) (
 
 func truncateToDate(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+}
+
+// summarizeRecentMemos pulls the most recent tasks that have a user-written
+// memo attached, so the AI summary can reference specifics ("腰が痛かった"
+// on leg-day entries) instead of only raw done/scheduled counts. Returns ""
+// when nothing has a memo, so the prompt doesn't grow a section for no
+// reason.
+func summarizeRecentMemos(tasks []*entity.DailyTask) string {
+	withMemo := make([]*entity.DailyTask, 0, len(tasks))
+	for _, t := range tasks {
+		if t.Memo != nil && strings.TrimSpace(*t.Memo) != "" {
+			withMemo = append(withMemo, t)
+		}
+	}
+	if len(withMemo) == 0 {
+		return ""
+	}
+
+	sort.Slice(withMemo, func(i, j int) bool { return withMemo[i].Date.After(withMemo[j].Date) })
+	if len(withMemo) > recentMemosLimit {
+		withMemo = withMemo[:recentMemosLimit]
+	}
+
+	var b strings.Builder
+	b.WriteString("\n直近のメモ:\n")
+	for _, t := range withMemo {
+		fmt.Fprintf(&b, "- %s(%s): %s\n", t.Date.Format(planDateLayout), t.Content, *t.Memo)
+	}
+	return b.String()
 }

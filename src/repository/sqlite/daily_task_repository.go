@@ -30,7 +30,7 @@ func (r *DailyTaskRepository) Save(task *entity.DailyTask) error {
 
 func (r *DailyTaskRepository) FindByGoalIDAndDateRange(goalID string, from, to time.Time) ([]*entity.DailyTask, error) {
 	rows, err := r.db.Query(
-		`SELECT id, goal_id, date, content, done, created_at, completed_at FROM daily_tasks
+		`SELECT id, goal_id, date, content, done, created_at, completed_at, memo FROM daily_tasks
 		 WHERE goal_id = ? AND date >= ? AND date <= ? ORDER BY date`,
 		goalID, from.Format(dateLayout), to.Format(dateLayout),
 	)
@@ -57,11 +57,23 @@ func (r *DailyTaskRepository) UpdateDone(id string, done bool, completedAt *time
 	return err
 }
 
+// UpdateMemo sets or clears (memo == nil) a task's free-text note. Editable
+// independent of Done/CompletedAt — a memo can be added, changed, or
+// removed at any time, not just at completion.
+func (r *DailyTaskRepository) UpdateMemo(id string, memo *string) error {
+	var value any
+	if memo != nil {
+		value = *memo
+	}
+	_, err := r.db.Exec(`UPDATE daily_tasks SET memo = ? WHERE id = ?`, value, id)
+	return err
+}
+
 // FindOldestPendingBefore returns the earliest not-done task for goalID with
 // a date strictly before `before`, or nil if there is none.
 func (r *DailyTaskRepository) FindOldestPendingBefore(goalID string, before time.Time) (*entity.DailyTask, error) {
 	row := r.db.QueryRow(
-		`SELECT id, goal_id, date, content, done, created_at, completed_at FROM daily_tasks
+		`SELECT id, goal_id, date, content, done, created_at, completed_at, memo FROM daily_tasks
 		 WHERE goal_id = ? AND done = 0 AND date < ?
 		 ORDER BY date ASC LIMIT 1`,
 		goalID, before.Format(dateLayout),
@@ -91,7 +103,7 @@ func (r *DailyTaskRepository) ShiftPendingForward(goalID string, fromDate time.T
 // boundaries entirely.
 func (r *DailyTaskRepository) FindByDateAndWorkspaceID(date time.Time, workspaceID string) ([]*entity.DailyTask, error) {
 	rows, err := r.db.Query(
-		`SELECT dt.id, dt.goal_id, dt.date, dt.content, dt.done, dt.created_at, dt.completed_at
+		`SELECT dt.id, dt.goal_id, dt.date, dt.content, dt.done, dt.created_at, dt.completed_at, dt.memo
 		 FROM daily_tasks dt
 		 JOIN goals g ON g.id = dt.goal_id
 		 WHERE dt.date = ? AND g.workspace_id = ?
@@ -112,7 +124,7 @@ func (r *DailyTaskRepository) FindByDateAndWorkspaceID(date time.Time, workspace
 // planning/review prompts, not scoped to any single goal.
 func (r *DailyTaskRepository) FindByWorkspaceIDAndDateRange(workspaceID string, from, to time.Time) ([]*entity.DailyTask, error) {
 	rows, err := r.db.Query(
-		`SELECT dt.id, dt.goal_id, dt.date, dt.content, dt.done, dt.created_at, dt.completed_at
+		`SELECT dt.id, dt.goal_id, dt.date, dt.content, dt.done, dt.created_at, dt.completed_at, dt.memo
 		 FROM daily_tasks dt
 		 JOIN goals g ON g.id = dt.goal_id
 		 WHERE g.workspace_id = ? AND dt.date >= ? AND dt.date <= ?
@@ -129,7 +141,7 @@ func (r *DailyTaskRepository) FindByWorkspaceIDAndDateRange(workspaceID string, 
 
 func (r *DailyTaskRepository) FindByDate(date time.Time) ([]*entity.DailyTask, error) {
 	rows, err := r.db.Query(
-		`SELECT id, goal_id, date, content, done, created_at, completed_at FROM daily_tasks WHERE date = ? ORDER BY created_at`,
+		`SELECT id, goal_id, date, content, done, created_at, completed_at, memo FROM daily_tasks WHERE date = ? ORDER BY created_at`,
 		date.Format(dateLayout),
 	)
 	if err != nil {
@@ -150,8 +162,8 @@ func nullableTimeString(t *time.Time) any {
 func scanDailyTask(row rowScanner) (*entity.DailyTask, error) {
 	var id, goalID, dateStr, content, createdAt string
 	var done int
-	var completedAt sql.NullString
-	if err := row.Scan(&id, &goalID, &dateStr, &content, &done, &createdAt, &completedAt); err != nil {
+	var completedAt, memo sql.NullString
+	if err := row.Scan(&id, &goalID, &dateStr, &content, &done, &createdAt, &completedAt, &memo); err != nil {
 		return nil, err
 	}
 
@@ -172,6 +184,9 @@ func scanDailyTask(row rowScanner) (*entity.DailyTask, error) {
 			return nil, err
 		}
 		task.CompletedAt = &parsedCompletedAt
+	}
+	if memo.Valid {
+		task.Memo = &memo.String
 	}
 	return task, nil
 }

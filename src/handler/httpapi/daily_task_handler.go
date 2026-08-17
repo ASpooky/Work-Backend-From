@@ -13,6 +13,7 @@ type DailyTaskHandler struct {
 	createRecurring *dailytask.CreateRecurringDailyTasksUsecase
 	list            *dailytask.ListDailyTasksUsecase
 	updateDone      *dailytask.UpdateDailyTaskDoneUsecase
+	updateMemo      *dailytask.UpdateTaskMemoUsecase
 }
 
 func NewDailyTaskHandler(
@@ -20,12 +21,17 @@ func NewDailyTaskHandler(
 	createRecurring *dailytask.CreateRecurringDailyTasksUsecase,
 	list *dailytask.ListDailyTasksUsecase,
 	updateDone *dailytask.UpdateDailyTaskDoneUsecase,
+	updateMemo *dailytask.UpdateTaskMemoUsecase,
 ) *DailyTaskHandler {
-	return &DailyTaskHandler{create: create, createRecurring: createRecurring, list: list, updateDone: updateDone}
+	return &DailyTaskHandler{create: create, createRecurring: createRecurring, list: list, updateDone: updateDone, updateMemo: updateMemo}
 }
 
 type updateDailyTaskDoneRequest struct {
 	Done bool `json:"done"`
+}
+
+type updateTaskMemoRequest struct {
+	Memo *string `json:"memo"`
 }
 
 type createDailyTaskRequest struct {
@@ -130,6 +136,23 @@ func (h *DailyTaskHandler) UpdateDone(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "done": req.Done})
+}
+
+func (h *DailyTaskHandler) UpdateMemo(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	var req updateTaskMemoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.updateMemo.Execute(dailytask.UpdateTaskMemoInput{ID: id, Memo: req.Memo}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "memo": req.Memo})
 }
 
 func (h *DailyTaskHandler) List(w http.ResponseWriter, r *http.Request) {

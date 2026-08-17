@@ -231,3 +231,58 @@ func TestOpen_MigratesLegacyGoalsTableMissingPriority(t *testing.T) {
 	}
 	db2.Close()
 }
+
+// TestOpen_MigratesLegacyDailyTasksTableMissingMemo mirrors the other
+// migration tests, for the memo column added to daily_tasks after some
+// databases already existed.
+func TestOpen_MigratesLegacyDailyTasksTableMissingMemo(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "legacy.db")
+
+	legacyDB, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("sql.Open() returned unexpected error: %v", err)
+	}
+	_, err = legacyDB.Exec(`CREATE TABLE daily_tasks (
+		id TEXT PRIMARY KEY,
+		goal_id TEXT NOT NULL,
+		date TEXT NOT NULL,
+		content TEXT NOT NULL,
+		done INTEGER NOT NULL,
+		created_at TEXT NOT NULL,
+		completed_at TEXT
+	)`)
+	if err != nil {
+		t.Fatalf("failed to create legacy daily_tasks table: %v", err)
+	}
+	if err := legacyDB.Close(); err != nil {
+		t.Fatalf("failed to close legacy db: %v", err)
+	}
+
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() on a legacy database returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	if _, err := db.Exec(
+		`INSERT INTO daily_tasks (id, goal_id, date, content, done, created_at, memo)
+		 VALUES ('t1', 'g1', '2026-01-01', 'c', 1, '2026-01-01T00:00:00Z', '腰が痛かった')`,
+	); err != nil {
+		t.Fatalf("insert using memo after migration returned unexpected error: %v", err)
+	}
+
+	var gotMemo string
+	if err := db.QueryRow(`SELECT memo FROM daily_tasks WHERE id = 't1'`).Scan(&gotMemo); err != nil {
+		t.Fatalf("failed to read back memo: %v", err)
+	}
+	if gotMemo != "腰が痛かった" {
+		t.Errorf("memo = %q, want %q", gotMemo, "腰が痛かった")
+	}
+
+	// Re-opening (idempotency) must not fail with "duplicate column name".
+	db3, err := Open(path)
+	if err != nil {
+		t.Fatalf("second Open() on an already-migrated database returned unexpected error: %v", err)
+	}
+	db3.Close()
+}

@@ -51,6 +51,7 @@ func main() {
 	createRecurringDailyTasks := dailytask.NewCreateRecurringDailyTasksUsecase(dailyTaskRepo, ids, clk)
 	listDailyTasks := dailytask.NewListDailyTasksUsecase(dailyTaskRepo)
 	updateDailyTaskDone := dailytask.NewUpdateDailyTaskDoneUsecase(dailyTaskRepo, clk)
+	updateTaskMemo := dailytask.NewUpdateTaskMemoUsecase(dailyTaskRepo)
 	getCalendar := usecase.NewGetCalendarUsecase(goalRepo, dailyTaskRepo)
 
 	if err := ensureDefaultWorkspace(createWorkspace, listWorkspaces); err != nil {
@@ -64,7 +65,7 @@ func main() {
 
 	workspaceHandler := httpapi.NewWorkspaceHandler(createWorkspace, listWorkspaces, renameWorkspace, deleteWorkspace)
 	goalHandler := httpapi.NewGoalHandler(createGoal, listGoals, getGoalStats, updateGoal, deleteGoal, reorderGoal)
-	dailyTaskHandler := httpapi.NewDailyTaskHandler(createDailyTask, createRecurringDailyTasks, listDailyTasks, updateDailyTaskDone)
+	dailyTaskHandler := httpapi.NewDailyTaskHandler(createDailyTask, createRecurringDailyTasks, listDailyTasks, updateDailyTaskDone, updateTaskMemo)
 	calendarHandler := httpapi.NewCalendarHandler(getCalendar)
 
 	mux := http.NewServeMux()
@@ -82,6 +83,7 @@ func main() {
 	mux.HandleFunc("POST /daily-tasks/recurring", dailyTaskHandler.CreateRecurring)
 	mux.HandleFunc("GET /daily-tasks", dailyTaskHandler.List)
 	mux.HandleFunc("PATCH /daily-tasks/{id}", dailyTaskHandler.UpdateDone)
+	mux.HandleFunc("PATCH /daily-tasks/{id}/memo", dailyTaskHandler.UpdateMemo)
 	mux.HandleFunc("GET /calendar", calendarHandler.Get)
 
 	if geminiAPIKey := os.Getenv("GEMINI_API_KEY"); geminiAPIKey != "" {

@@ -430,6 +430,59 @@ func TestDailyTaskRepository_UpdateDone(t *testing.T) {
 	}
 }
 
+func TestDailyTaskRepository_UpdateMemo(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	workspace := entity.NewWorkSpace("workspace-001", DefaultUserID, "private", time.Now())
+	if err := workspaceRepo.Save(workspace); err != nil {
+		t.Fatalf("workspaceRepo.Save() returned unexpected error: %v", err)
+	}
+
+	goalRepo := NewGoalRepository(db)
+	goal := entity.NewGoal("goal-001", workspace.ID, "Run a marathon", "detail", "condition", time.Now(), entity.ModeStrict, time.Now())
+	if err := goalRepo.Save(goal); err != nil {
+		t.Fatalf("goalRepo.Save() returned unexpected error: %v", err)
+	}
+
+	repo := NewDailyTaskRepository(db)
+	date := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
+	task := entity.NewDailyTask("task-001", goal.ID, date, "Run 5km", time.Now())
+	if err := repo.Save(task); err != nil {
+		t.Fatalf("Save() returned unexpected error: %v", err)
+	}
+
+	memo := "腰が痛かった"
+	if err := repo.UpdateMemo(task.ID, &memo); err != nil {
+		t.Fatalf("UpdateMemo() returned unexpected error: %v", err)
+	}
+
+	got, err := repo.FindByDate(date)
+	if err != nil {
+		t.Fatalf("FindByDate() returned unexpected error: %v", err)
+	}
+	if len(got) != 1 || got[0].Memo == nil || *got[0].Memo != memo {
+		t.Fatalf("FindByDate() after UpdateMemo = %+v, want Memo=%q", got, memo)
+	}
+
+	// Clearing the memo (nil) must actually clear it, not leave the old value.
+	if err := repo.UpdateMemo(task.ID, nil); err != nil {
+		t.Fatalf("UpdateMemo() (clearing) returned unexpected error: %v", err)
+	}
+	gotAfterClear, err := repo.FindByDate(date)
+	if err != nil {
+		t.Fatalf("FindByDate() returned unexpected error: %v", err)
+	}
+	if len(gotAfterClear) != 1 || gotAfterClear[0].Memo != nil {
+		t.Errorf("Memo after clearing = %v, want nil", gotAfterClear[0].Memo)
+	}
+}
+
 func TestDailyTaskRepository_FindOldestPendingBefore(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
 	db, err := Open(path)

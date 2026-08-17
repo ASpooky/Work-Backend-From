@@ -72,7 +72,10 @@ func migrate(db *sql.DB) error {
 	if err := addColumnIfMissing(db, "daily_tasks", "completed_at", "TEXT"); err != nil {
 		return err
 	}
-	return addColumnIfMissing(db, "goals", "priority", "INTEGER NOT NULL DEFAULT 0")
+	if err := addColumnIfMissing(db, "goals", "priority", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
+	return addColumnIfMissing(db, "daily_tasks", "memo", "TEXT")
 }
 
 func addColumnIfMissing(db *sql.DB, table, column, definition string) error {

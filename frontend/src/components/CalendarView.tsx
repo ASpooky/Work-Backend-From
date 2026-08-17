@@ -25,6 +25,7 @@ function CalendarView({ workspaceId, workspaces, refreshKey }: Props) {
   const [dayTasks, setDayTasks] = useState<DailyTask[]>([])
   const [calendar, setCalendar] = useState<GoalCalendar[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [expandedMemoTaskId, setExpandedMemoTaskId] = useState<string | null>(null)
 
   const isToday = selectedDate === formatISODate(new Date())
 
@@ -65,6 +66,19 @@ function CalendarView({ workspaceId, workspaces, refreshKey }: Props) {
         .catch((err) => setError(toUserMessage(err)))
     } catch (err) {
       setDayTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, done: !nextDone } : t)))
+      setError(toUserMessage(err))
+    }
+  }
+
+  async function handleSaveMemo(task: DailyTask, memo: string) {
+    const trimmed = memo.trim()
+    const nextMemo = trimmed === '' ? undefined : trimmed
+    if (nextMemo === task.memo) return
+    setDayTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, memo: nextMemo } : t)))
+    try {
+      await api.updateTaskMemo(task.id, nextMemo ?? null)
+    } catch (err) {
+      setDayTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, memo: task.memo } : t)))
       setError(toUserMessage(err))
     }
   }
@@ -118,19 +132,40 @@ function CalendarView({ workspaceId, workspaces, refreshKey }: Props) {
           </div>
         </div>
         <ul className="task-list">
-          {sortedDayTasks.map((task) => (
-            <li key={task.id}>
-              <label className="task-item">
-                <input type="checkbox" checked={task.done} onChange={() => handleToggleDone(task)} />
-                {modeByGoalId.get(task.goal_id) === 'strict' && (
-                  <span className="task-item-strict" title="必達">
-                    必達
-                  </span>
+          {sortedDayTasks.map((task) => {
+            const memoOpen = expandedMemoTaskId === task.id
+            return (
+              <li key={task.id}>
+                <div className="task-item-row">
+                  <label className="task-item">
+                    <input type="checkbox" checked={task.done} onChange={() => handleToggleDone(task)} />
+                    {modeByGoalId.get(task.goal_id) === 'strict' && (
+                      <span className="task-item-strict" title="必達">
+                        必達
+                      </span>
+                    )}
+                    <span className={task.done ? 'task-item-done' : ''}>{task.content}</span>
+                  </label>
+                  <button
+                    type="button"
+                    className={`task-item-memo-toggle${task.memo ? ' has-memo' : ''}`}
+                    onClick={() => setExpandedMemoTaskId(memoOpen ? null : task.id)}
+                    aria-label={`${task.content}のメモを${memoOpen ? '閉じる' : '開く'}`}
+                  >
+                    {task.memo ? '📝' : '+メモ'}
+                  </button>
+                </div>
+                {memoOpen && (
+                  <textarea
+                    className="task-item-memo-input"
+                    placeholder="メモ（体調・気づきなど）"
+                    defaultValue={task.memo ?? ''}
+                    onBlur={(e) => handleSaveMemo(task, e.target.value)}
+                  />
                 )}
-                <span className={task.done ? 'task-item-done' : ''}>{task.content}</span>
-              </label>
-            </li>
-          ))}
+              </li>
+            )
+          })}
           {dayTasks.length === 0 && <li>{isToday ? '今日のタスクはありません。' : 'この日のタスクはありません。'}</li>}
         </ul>
       </div>
