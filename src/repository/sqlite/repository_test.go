@@ -483,6 +483,49 @@ func TestDailyTaskRepository_UpdateMemo(t *testing.T) {
 	}
 }
 
+func TestDailyTaskRepository_Delete(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open() returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	workspaceRepo := NewWorkspaceRepository(db)
+	workspace := entity.NewWorkSpace("workspace-001", DefaultUserID, "private", time.Now())
+	if err := workspaceRepo.Save(workspace); err != nil {
+		t.Fatalf("workspaceRepo.Save() returned unexpected error: %v", err)
+	}
+
+	goalRepo := NewGoalRepository(db)
+	goal := entity.NewGoal("goal-001", workspace.ID, "Run a marathon", "detail", "condition", time.Now(), entity.ModeStrict, time.Now())
+	if err := goalRepo.Save(goal); err != nil {
+		t.Fatalf("goalRepo.Save() returned unexpected error: %v", err)
+	}
+
+	repo := NewDailyTaskRepository(db)
+	date := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
+	doomed := entity.NewDailyTask("task-doomed", goal.ID, date, "消えるtask", time.Now())
+	survivor := entity.NewDailyTask("task-survivor", goal.ID, date, "残るtask", time.Now())
+	for _, task := range []*entity.DailyTask{doomed, survivor} {
+		if err := repo.Save(task); err != nil {
+			t.Fatalf("Save() returned unexpected error: %v", err)
+		}
+	}
+
+	if err := repo.Delete(doomed.ID); err != nil {
+		t.Fatalf("Delete() returned unexpected error: %v", err)
+	}
+
+	got, err := repo.FindByDate(date)
+	if err != nil {
+		t.Fatalf("FindByDate() returned unexpected error: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != survivor.ID {
+		t.Errorf("FindByDate() after Delete() = %+v, want only %s", got, survivor.ID)
+	}
+}
+
 func TestDailyTaskRepository_FindOldestPendingBefore(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
 	db, err := Open(path)

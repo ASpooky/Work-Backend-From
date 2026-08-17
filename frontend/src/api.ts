@@ -93,6 +93,12 @@ export type Plan = {
   goals: PlannedGoalPlan[]
 }
 
+export type GoalRevision = {
+  goal: PlannedGoal
+  removed_tasks: DailyTask[]
+  new_tasks: PlannedTask[]
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -168,6 +174,7 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ memo }),
     }),
+  deleteDailyTask: (id: string) => request<void>(`/daily-tasks/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   getCalendar: (workspaceId: string, from: string, to: string) =>
     request<GoalCalendar[]>(
@@ -200,7 +207,7 @@ export const api = {
       body: JSON.stringify({ workspace_id: workspaceId, conversation_id: conversationId ?? '', content }),
     }),
   reviseGoal: (goalId: string, conversationId: string) =>
-    request<PlannedGoal>(`/ai/goals/${encodeURIComponent(goalId)}/revise`, {
+    request<GoalRevision>(`/ai/goals/${encodeURIComponent(goalId)}/revise`, {
       method: 'POST',
       body: JSON.stringify({ conversation_id: conversationId }),
     }),

@@ -57,6 +57,13 @@ func (r *DailyTaskRepository) UpdateDone(id string, done bool, completedAt *time
 	return err
 }
 
+// Delete removes a single daily task — used when an AI goal-revision
+// proposal removes an existing task from the schedule.
+func (r *DailyTaskRepository) Delete(id string) error {
+	_, err := r.db.Exec(`DELETE FROM daily_tasks WHERE id = ?`, id)
+	return err
+}
+
 // UpdateMemo sets or clears (memo == nil) a task's free-text note. Editable
 // independent of Done/CompletedAt — a memo can be added, changed, or
 // removed at any time, not just at completion.

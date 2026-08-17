@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/ASpooky/Work-Backend-From/src/entity"
 	"github.com/ASpooky/Work-Backend-From/src/usecase/ai"
 )
 
@@ -234,6 +235,12 @@ type reviseGoalRequest struct {
 	ConversationID string `json:"conversation_id"`
 }
 
+type goalRevisionResponse struct {
+	Goal         plannedGoalResponse   `json:"goal"`
+	RemovedTasks []*entity.DailyTask   `json:"removed_tasks"`
+	NewTasks     []plannedTaskResponse `json:"new_tasks"`
+}
+
 func (h *AIHandler) ReviseGoal(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
@@ -243,18 +250,37 @@ func (h *AIHandler) ReviseGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	revised, err := h.reviseGoal.Execute(r.Context(), ai.ReviseGoalInput{GoalID: id, ConversationID: req.ConversationID})
+	revision, err := h.reviseGoal.Execute(r.Context(), ai.ReviseGoalInput{GoalID: id, ConversationID: req.ConversationID})
 	if err != nil {
 		log.Printf("AI goal revision failed: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, plannedGoalResponse{
-		Title:                revised.Title,
-		Detail:               revised.Detail,
-		AchievementCondition: revised.AchievementCondition,
-		EndDate:              revised.EndDate.Format(dateLayout),
-		Mode:                 string(revised.Mode),
-	})
+	resp := goalRevisionResponse{
+		Goal: plannedGoalResponse{
+			Title:                revision.Goal.Title,
+			Detail:               revision.Goal.Detail,
+			AchievementCondition: revision.Goal.AchievementCondition,
+			EndDate:              revision.Goal.EndDate.Format(dateLayout),
+			Mode:                 string(revision.Goal.Mode),
+		},
+		RemovedTasks: revision.RemovedTasks,
+		NewTasks:     []plannedTaskResponse{},
+	}
+	for _, t := range revision.NewTasks {
+		tr := plannedTaskResponse{
+			Content:      t.Content,
+			StartDate:    t.StartDate.Format(dateLayout),
+			EndDate:      t.EndDate.Format(dateLayout),
+			RuleType:     string(t.Rule.Type),
+			IntervalDays: t.Rule.IntervalDays,
+		}
+		for _, wd := range t.Rule.Weekdays {
+			tr.Weekdays = append(tr.Weekdays, int(wd))
+		}
+		resp.NewTasks = append(resp.NewTasks, tr)
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }

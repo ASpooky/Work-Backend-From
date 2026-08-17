@@ -14,6 +14,7 @@ type DailyTaskHandler struct {
 	list            *dailytask.ListDailyTasksUsecase
 	updateDone      *dailytask.UpdateDailyTaskDoneUsecase
 	updateMemo      *dailytask.UpdateTaskMemoUsecase
+	delete          *dailytask.DeleteDailyTaskUsecase
 }
 
 func NewDailyTaskHandler(
@@ -22,8 +23,9 @@ func NewDailyTaskHandler(
 	list *dailytask.ListDailyTasksUsecase,
 	updateDone *dailytask.UpdateDailyTaskDoneUsecase,
 	updateMemo *dailytask.UpdateTaskMemoUsecase,
+	del *dailytask.DeleteDailyTaskUsecase,
 ) *DailyTaskHandler {
-	return &DailyTaskHandler{create: create, createRecurring: createRecurring, list: list, updateDone: updateDone, updateMemo: updateMemo}
+	return &DailyTaskHandler{create: create, createRecurring: createRecurring, list: list, updateDone: updateDone, updateMemo: updateMemo, delete: del}
 }
 
 type updateDailyTaskDoneRequest struct {
@@ -153,6 +155,17 @@ func (h *DailyTaskHandler) UpdateMemo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "memo": req.Memo})
+}
+
+func (h *DailyTaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	if err := h.delete.Execute(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *DailyTaskHandler) List(w http.ResponseWriter, r *http.Request) {

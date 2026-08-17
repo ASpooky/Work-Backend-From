@@ -1,7 +1,8 @@
 import { useEffect, useState, type SubmitEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api, type ConversationMessage, type GoalStats, type PlannedGoal } from '../api'
+import { api, type ConversationMessage, type GoalRevision, type GoalStats, type PlannedGoal } from '../api'
 import { toUserMessage } from '../errors'
+import { describeRecurrence } from '../date'
 import './AIPlanPage.css'
 import './GoalDetailPage.css'
 
@@ -38,7 +39,14 @@ function GoalDetailPage({ onUpdated }: Props) {
   const [reviewInput, setReviewInput] = useState('')
   const [reviewSending, setReviewSending] = useState(false)
   const [revising, setRevising] = useState(false)
-  const [revision, setRevision] = useState<PlannedGoal | null>(null)
+  const [revision, setRevision] = useState<GoalRevision | null>(null)
+  const [editedRevisionGoal, setEditedRevisionGoal] = useState<PlannedGoal | null>(null)
+  // Task ids from revision.removed_tasks the user un-flagged (i.e. wants to
+  // keep after all, undoing the AI's proposed removal).
+  const [keptTaskIds, setKeptTaskIds] = useState<string[]>([])
+  // Indexes into revision.new_tasks the user doesn't want to add.
+  const [removedNewTaskIndexes, setRemovedNewTaskIndexes] = useState<number[]>([])
+  const [confirmingRevision, setConfirmingRevision] = useState(false)
 
   function load() {
     if (!id) return
@@ -69,6 +77,14 @@ function GoalDetailPage({ onUpdated }: Props) {
       .then((s) => setAiEnabled(s.enabled))
       .catch(() => setAiEnabled(false))
   }, [])
+
+  useEffect(() => {
+    if (revision) {
+      setEditedRevisionGoal(revision.goal)
+      setKeptTaskIds([])
+      setRemovedNewTaskIndexes([])
+    }
+  }, [revision])
 
   async function handleSave(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -205,17 +221,37 @@ function GoalDetailPage({ onUpdated }: Props) {
   }
 
   async function handleConfirmRevision() {
-    if (!id || !revision) return
-    setSaving(true)
+    if (!id || !revision || !editedRevisionGoal) return
+    setConfirmingRevision(true)
     setError(null)
     try {
       await api.updateGoal(id, {
-        title: revision.title,
-        detail: revision.detail,
-        achievement_condition: revision.achievement_condition,
-        end_date: revision.end_date,
-        mode: revision.mode,
+        title: editedRevisionGoal.title,
+        detail: editedRevisionGoal.detail,
+        achievement_condition: editedRevisionGoal.achievement_condition,
+        end_date: editedRevisionGoal.end_date,
+        mode: editedRevisionGoal.mode,
       })
+
+      const tasksToRemove = revision.removed_tasks.filter((t) => !keptTaskIds.includes(t.id))
+      for (const task of tasksToRemove) {
+        await api.deleteDailyTask(task.id)
+      }
+
+      const tasksToAdd = revision.new_tasks.filter((_, i) => !removedNewTaskIndexes.includes(i))
+      for (const task of tasksToAdd) {
+        await api.createRecurringDailyTasks({
+          goal_id: id,
+          content: task.content,
+          start_date: task.start_date,
+          end_date: task.end_date,
+          rule:
+            task.rule_type === 'interval'
+              ? { type: 'interval', interval_days: task.interval_days ?? 1 }
+              : { type: 'weekly', weekdays: task.weekdays ?? [] },
+        })
+      }
+
       setMode('view')
       setRevision(null)
       load()
@@ -223,7 +259,7 @@ function GoalDetailPage({ onUpdated }: Props) {
     } catch (err) {
       setError(toUserMessage(err))
     } finally {
-      setSaving(false)
+      setConfirmingRevision(false)
     }
   }
 
@@ -343,53 +379,121 @@ function GoalDetailPage({ onUpdated }: Props) {
             </>
           )}
 
-          {revision && (
+          {revision && editedRevisionGoal && (
             <div className="ai-plan-review">
               <h3>見直し案（確認・編集してから保存してください）</h3>
               <div className="ai-plan-goal-fields">
                 <label>
                   タイトル
-                  <input value={revision.title} onChange={(e) => setRevision({ ...revision, title: e.target.value })} />
+                  <input
+                    value={editedRevisionGoal.title}
+                    onChange={(e) => setEditedRevisionGoal({ ...editedRevisionGoal, title: e.target.value })}
+                  />
                 </label>
                 <label>
                   詳細
                   <input
-                    value={revision.detail}
-                    onChange={(e) => setRevision({ ...revision, detail: e.target.value })}
+                    value={editedRevisionGoal.detail}
+                    onChange={(e) => setEditedRevisionGoal({ ...editedRevisionGoal, detail: e.target.value })}
                   />
                 </label>
                 <label>
                   達成条件
                   <input
-                    value={revision.achievement_condition}
-                    onChange={(e) => setRevision({ ...revision, achievement_condition: e.target.value })}
+                    value={editedRevisionGoal.achievement_condition}
+                    onChange={(e) =>
+                      setEditedRevisionGoal({ ...editedRevisionGoal, achievement_condition: e.target.value })
+                    }
                   />
                 </label>
                 <label>
                   期限
                   <input
                     type="date"
-                    value={revision.end_date}
-                    onChange={(e) => setRevision({ ...revision, end_date: e.target.value })}
+                    value={editedRevisionGoal.end_date}
+                    onChange={(e) => setEditedRevisionGoal({ ...editedRevisionGoal, end_date: e.target.value })}
                   />
                 </label>
                 <label>
                   モード
                   <select
-                    value={revision.mode}
-                    onChange={(e) => setRevision({ ...revision, mode: e.target.value as 'strict' | 'want' })}
+                    value={editedRevisionGoal.mode}
+                    onChange={(e) =>
+                      setEditedRevisionGoal({ ...editedRevisionGoal, mode: e.target.value as 'strict' | 'want' })
+                    }
                   >
                     <option value="strict">必達</option>
                     <option value="want">努力目標</option>
                   </select>
                 </label>
               </div>
+
+              {revision.removed_tasks.length > 0 && (
+                <>
+                  <h3>削除するタスク</h3>
+                  <ul className="ai-plan-task-list">
+                    {revision.removed_tasks.map((task) => {
+                      const kept = keptTaskIds.includes(task.id)
+                      return (
+                        <li key={task.id} className={kept ? 'removed' : ''}>
+                          <div>
+                            <div className="ai-plan-task-content">{task.content}</div>
+                            <div className="ai-plan-task-sub">{task.date.slice(0, 10)}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setKeptTaskIds((prev) =>
+                                kept ? prev.filter((x) => x !== task.id) : [...prev, task.id],
+                              )
+                            }
+                          >
+                            {kept ? '削除に戻す' : '残す'}
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </>
+              )}
+
+              {revision.new_tasks.length > 0 && (
+                <>
+                  <h3>追加するタスク</h3>
+                  <ul className="ai-plan-task-list">
+                    {revision.new_tasks.map((task, i) => {
+                      const removed = removedNewTaskIndexes.includes(i)
+                      return (
+                        <li key={i} className={removed ? 'removed' : ''}>
+                          <div>
+                            <div className="ai-plan-task-content">{task.content}</div>
+                            <div className="ai-plan-task-sub">
+                              {describeRecurrence(task)} ・ {task.start_date} 〜 {task.end_date}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setRemovedNewTaskIndexes((prev) =>
+                                removed ? prev.filter((x) => x !== i) : [...prev, i],
+                              )
+                            }
+                          >
+                            {removed ? '戻す' : '削除'}
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </>
+              )}
+
               <div className="ai-plan-actions">
                 <button type="button" onClick={() => setRevision(null)}>
                   会話に戻る
                 </button>
-                <button type="button" onClick={handleConfirmRevision} disabled={saving}>
-                  {saving ? '保存中…' : 'この内容で保存する'}
+                <button type="button" onClick={handleConfirmRevision} disabled={confirmingRevision}>
+                  {confirmingRevision ? '保存中…' : 'この内容で保存する'}
                 </button>
               </div>
             </div>

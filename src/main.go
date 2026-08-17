@@ -52,6 +52,7 @@ func main() {
 	listDailyTasks := dailytask.NewListDailyTasksUsecase(dailyTaskRepo)
 	updateDailyTaskDone := dailytask.NewUpdateDailyTaskDoneUsecase(dailyTaskRepo, clk)
 	updateTaskMemo := dailytask.NewUpdateTaskMemoUsecase(dailyTaskRepo)
+	deleteDailyTask := dailytask.NewDeleteDailyTaskUsecase(dailyTaskRepo)
 	getCalendar := usecase.NewGetCalendarUsecase(goalRepo, dailyTaskRepo)
 
 	if err := ensureDefaultWorkspace(createWorkspace, listWorkspaces); err != nil {
@@ -65,7 +66,7 @@ func main() {
 
 	workspaceHandler := httpapi.NewWorkspaceHandler(createWorkspace, listWorkspaces, renameWorkspace, deleteWorkspace)
 	goalHandler := httpapi.NewGoalHandler(createGoal, listGoals, getGoalStats, updateGoal, deleteGoal, reorderGoal)
-	dailyTaskHandler := httpapi.NewDailyTaskHandler(createDailyTask, createRecurringDailyTasks, listDailyTasks, updateDailyTaskDone, updateTaskMemo)
+	dailyTaskHandler := httpapi.NewDailyTaskHandler(createDailyTask, createRecurringDailyTasks, listDailyTasks, updateDailyTaskDone, updateTaskMemo, deleteDailyTask)
 	calendarHandler := httpapi.NewCalendarHandler(getCalendar)
 
 	mux := http.NewServeMux()
@@ -84,6 +85,7 @@ func main() {
 	mux.HandleFunc("GET /daily-tasks", dailyTaskHandler.List)
 	mux.HandleFunc("PATCH /daily-tasks/{id}", dailyTaskHandler.UpdateDone)
 	mux.HandleFunc("PATCH /daily-tasks/{id}/memo", dailyTaskHandler.UpdateMemo)
+	mux.HandleFunc("DELETE /daily-tasks/{id}", dailyTaskHandler.Delete)
 	mux.HandleFunc("GET /calendar", calendarHandler.Get)
 
 	if geminiAPIKey := os.Getenv("GEMINI_API_KEY"); geminiAPIKey != "" {
@@ -104,7 +106,7 @@ func main() {
 		goalReviewChat := ai.NewGoalReviewChatUsecase(geminiClient, goalRepo, dailyTaskRepo, dailyTaskRepo, clk)
 		sendGoalReviewMessage := ai.NewSendMessageUsecase(conversationRepo, conversationRepo, conversationMessageRepo, goalReviewChat, ids, clk)
 		listGoalConversations := ai.NewListGoalConversationsUsecase(conversationRepo)
-		reviseGoal := ai.NewReviseGoalUsecase(geminiClient, goalRepo, conversationMessageRepo, clk)
+		reviseGoal := ai.NewReviseGoalUsecase(geminiClient, goalRepo, dailyTaskRepo, conversationMessageRepo, clk)
 
 		aiHandler := httpapi.NewAIHandler(
 			sendMessage, listConversations, getConversation, planGoal, summarizeGoal,
