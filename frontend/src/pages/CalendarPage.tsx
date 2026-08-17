@@ -10,7 +10,7 @@ type Props = {
 function CalendarPage({ workspace, workspaces, refreshKey }: Props) {
   return (
     <section>
-      <h2>Calendar</h2>
+      <h2>カレンダー</h2>
       <CalendarView workspaceId={workspace.id} workspaces={workspaces} refreshKey={refreshKey} />
     </section>
   )

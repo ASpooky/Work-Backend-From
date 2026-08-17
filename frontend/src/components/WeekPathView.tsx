@@ -158,7 +158,11 @@ function DayCell({
         style={{ left: isFirst ? '50%' : 0, right: isLast ? '50%' : 0 }}
       />
       <NodeIcon state={state} />
-      {content && state !== 'no-task' && <div className="week-path-caption">{content}</div>}
+      {content && state !== 'no-task' && (
+        <div className="week-path-caption" title={content}>
+          {content}
+        </div>
+      )}
     </td>
   )
 }

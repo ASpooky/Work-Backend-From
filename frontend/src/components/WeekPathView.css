@@ -228,5 +228,9 @@
   color: var(--text);
   max-width: 5.5rem;
   margin-inline: auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: default;
 }
 
