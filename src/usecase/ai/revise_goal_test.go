@@ -64,6 +64,43 @@ func TestReviseGoalUsecase_Execute(t *testing.T) {
 	}
 }
 
+// TestReviseGoalUsecase_Execute_PromptCoversAddingTasksToAGoalWithNone
+// captures a real bug: a goal created with zero daily tasks yet (e.g. via
+// AI plan creation that only saved the goal, or a manually-created goal
+// with tasks never added) couldn't get new tasks proposed during review —
+// the prompt's wording ("タスクの頻度・内容・期間の変更") implicitly assumed
+// there was something existing to change, so the AI reasoned "nothing to
+// change" and left new_tasks empty even when the conversation clearly
+// discussed concrete new daily tasks to add. The prompt must explicitly
+// cover the empty-candidate-list case.
+func TestReviseGoalUsecase_Execute_PromptCoversAddingTasksToAGoalWithNone(t *testing.T) {
+	created := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2026, 11, 17, 0, 0, 0, 0, time.UTC)
+	now := time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC)
+	goal := entity.NewGoal("goal-001", "workspace-001", "自作リバースプロキシ", "detail", "cond", endDate, entity.ModeStrict, created)
+	goals := stubSingleGoalReader{goal: goal}
+	tasks := stubTaskRangeReader{} // no existing tasks at all
+
+	gen := &stubPlanGenerator{json: `{
+		"goal": {"title": "x", "detail": "x", "achievement_condition": "x", "end_date": "2026-11-17", "mode": "strict"},
+		"remove_task_ids": [],
+		"new_tasks": []
+	}`}
+	messages := &spyMessageRepo{}
+	uc := NewReviseGoalUsecase(gen, goals, tasks, messages, stubClock{now: now})
+
+	if _, err := uc.Execute(context.Background(), ReviseGoalInput{GoalID: "goal-001", ConversationID: "conv-001"}); err != nil {
+		t.Fatalf("Execute() returned unexpected error: %v", err)
+	}
+
+	if !strings.Contains(gen.capturedSystem, "候補タスク: なし") {
+		t.Errorf("system instruction = %q, want it to explicitly state there are no existing candidate tasks", gen.capturedSystem)
+	}
+	if !strings.Contains(gen.capturedSystem, "まだタスクが無くても") {
+		t.Errorf("system instruction = %q, want explicit guidance that new_tasks can be proposed even with zero existing tasks", gen.capturedSystem)
+	}
+}
+
 func TestReviseGoalUsecase_Execute_ProposesTaskChanges(t *testing.T) {
 	created := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)

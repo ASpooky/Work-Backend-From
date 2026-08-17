@@ -212,7 +212,10 @@ function GoalDetailPage({ onUpdated }: Props) {
     setRevising(true)
     setError(null)
     try {
-      setRevision(await api.reviseGoal(id, reviewConversationId))
+      const got = await api.reviseGoal(id, reviewConversationId)
+      // Defensive: normalize in case either array ever comes back null
+      // (a bare Go nil slice serializes to JSON null, not []).
+      setRevision({ ...got, removed_tasks: got.removed_tasks ?? [], new_tasks: got.new_tasks ?? [] })
     } catch (err) {
       setError(toUserMessage(err))
     } finally {

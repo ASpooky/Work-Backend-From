@@ -257,6 +257,14 @@ func (h *AIHandler) ReviseGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	removedTasks := revision.RemovedTasks
+	if removedTasks == nil {
+		// A nil slice marshals to JSON `null`, not `[]` — the frontend
+		// always does `revision.removed_tasks.length`, which throws on
+		// null. Every proposal with no removals hit exactly this.
+		removedTasks = []*entity.DailyTask{}
+	}
+
 	resp := goalRevisionResponse{
 		Goal: plannedGoalResponse{
 			Title:                revision.Goal.Title,
@@ -265,7 +273,7 @@ func (h *AIHandler) ReviseGoal(w http.ResponseWriter, r *http.Request) {
 			EndDate:              revision.Goal.EndDate.Format(dateLayout),
 			Mode:                 string(revision.Goal.Mode),
 		},
-		RemovedTasks: revision.RemovedTasks,
+		RemovedTasks: removedTasks,
 		NewTasks:     []plannedTaskResponse{},
 	}
 	for _, t := range revision.NewTasks {
